@@ -1,0 +1,109 @@
+<VirtualHost *:8188>
+    ServerName {{ domain }}
+    ServerAlias www.{{ domain }}
+
+    DocumentRoot "{{ root_path }}/public_html"
+
+    <Directory "{{ root_path }}/public_html">
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    # PHP-FPM Configuration
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:/run/php/php{{ php_version }}-fpm.sock|fcgi://localhost"
+    </FilesMatch>
+
+    # Security Headers
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    {% if waf_enabled %}
+    # ModSecurity WAF
+    SecRuleEngine On
+    SecRequestBodyAccess On
+    SecResponseBodyAccess Off
+    SecDebugLog /var/log/apache2/modsec_debug.log
+    SecDebugLogLevel 0
+    SecAuditEngine RelevantOnly
+    SecAuditLogRelevantStatus "^(?:5|4(?!04))"
+    SecAuditLogParts AHIFZ
+    SecAuditLogType Serial
+    SecArgumentSeparator &
+    SecCookieFormat 0
+    SecRule REQUEST_FILENAME|ARGS|ARGS_NAMES|REQUEST_HEADERS|!REQUEST_HEADERS:Referer \
+        "@pmFromFile bpanel-main.data" \
+        "id:1000,phase:1,log,auditlog,deny,status:403,msg:'BPanel WAF: Possible attack detected'"
+    {% endif %}
+
+    # Logging
+    ErrorLog ${APACHE_LOG_DIR}/{{ domain }}-error.log
+    CustomLog ${APACHE_LOG_DIR}/{{ domain }}-access.log combined
+
+    # Performance
+    EnableSendfile On
+    EnableMMAP On
+</VirtualHost>
+
+# HTTPS VirtualHost
+<IfModule mod_ssl.c>
+<VirtualHost *:8189>
+    ServerName {{ domain }}
+    ServerAlias www.{{ domain }}
+
+    DocumentRoot "{{ root_path }}/public_html"
+
+    <Directory "{{ root_path }}/public_html">
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    # PHP-FPM Configuration
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:/run/php/php{{ php_version }}-fpm.sock|fcgi://localhost"
+    </FilesMatch>
+
+    # Security Headers
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS:on}"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # SSL Configuration
+    SSLEngine on
+    SSLCertificateFile /etc/letsencrypt/live/{{ domain }}/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/{{ domain }}/privkey.pem
+    Include /etc/letsencrypt/options-ssl-apache.conf
+
+    {% if waf_enabled %}
+    # ModSecurity WAF
+    SecRuleEngine On
+    SecRequestBodyAccess On
+    SecResponseBodyAccess Off
+    SecDebugLog /var/log/apache2/modsec_debug.log
+    SecDebugLogLevel 0
+    SecAuditEngine RelevantOnly
+    SecAuditLogRelevantStatus "^(?:5|4(?!04))"
+    SecAuditLogParts AHIFZ
+    SecAuditLogType Serial
+    SecArgumentSeparator &
+    SecCookieFormat 0
+    SecRule REQUEST_FILENAME|ARGS|ARGS_NAMES|REQUEST_HEADERS|!REQUEST_HEADERS:Referer \
+        "@pmFromFile bpanel-main.data" \
+        "id:1001,phase:1,log,auditlog,deny,status:403,msg:'BPanel WAF: Possible attack detected'"
+    {% endif %}
+
+    # Logging
+    ErrorLog ${APACHE_LOG_DIR}/{{ domain }}-ssl-error.log
+    CustomLog ${APACHE_LOG_DIR}/{{ domain }}-ssl-access.log combined
+
+    # Performance
+    EnableSendfile On
+    EnableMMAP On
+</VirtualHost>
+</IfModule>

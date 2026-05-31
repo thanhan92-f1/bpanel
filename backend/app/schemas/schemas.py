@@ -1,14 +1,18 @@
 import re
 from datetime import datetime
 import json
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 DOMAIN_RE = re.compile(r"^(?!-)([a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,}$")
-SUPPORTED_PHP_VERSIONS = {"8.3", "8.4"}
+SUPPORTED_PHP_VERSIONS = {
+    "5.2", "5.3", "5.4", "5.5", "5.6",
+    "7.0", "7.1", "7.2", "7.3", "7.4",
+    "8.0", "8.1", "8.2", "8.3", "8.4", "8.5"
+}
 SUPPORTED_APP_TYPES = {"wordpress", "php", "static"}
 SUPPORTED_ROLES = {"admin", "end_user"}
 SIZE_RE = re.compile(r"^\d{1,6}[KMG]?$")  # e.g. "512M", "1024M"
@@ -295,6 +299,7 @@ class WebsiteOut(BaseModel):
     status: str
     nginx_custom: str = ""
     waf_enabled: bool = True
+    web_engine: str = "nginx"
 
     class Config:
         from_attributes = True
@@ -505,7 +510,7 @@ class RestoreBackup(BaseModel):
 
 
 class PhpConfigUpdate(BaseModel):
-    php_version: Literal["8.3", "8.4"] = "8.3"
+    php_version: Literal["5.2", "5.3", "5.4", "5.5", "5.6", "7.0", "7.1", "7.2", "7.3", "7.4", "8.0", "8.1", "8.2", "8.3", "8.4", "8.5"] = "8.3"
     display_errors: Literal["On", "Off"] = "Off"
     memory_limit: str = "512M"
     upload_max_filesize: str = "1024M"
@@ -532,3 +537,58 @@ class CronCreate(BaseModel):
 class WpAction(BaseModel):
     website_id: int
     action: str
+
+
+# Mail Server Schemas
+
+class MailDomainOut(BaseModel):
+    domain: str
+    quota_gb: int
+    exists: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+class MailboxOut(BaseModel):
+    domain: str
+    username: str
+    email: str
+    quota_mb: int
+    size_bytes: int = 0
+    is_active: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+class MailboxCreatedOut(MailboxOut):
+    password: str  # Only returned on creation
+
+
+class EmailOut(BaseModel):
+    id: int
+    filename: str
+    size: int
+    date: str
+
+    class Config:
+        from_attributes = True
+
+
+class EmailsListOut(BaseModel):
+    domain: str
+    username: str
+    folder: str
+    emails: List[EmailOut]
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+
+
+class MailServerStatusOut(BaseModel):
+    postfix: dict
+    dovecot: dict
+    spamassassin: dict
+    storage: Optional[dict] = None

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<virtualHost>
+    <name>{{ domain }}</name>
+    <vhRoot>{{ root_path }}</vhRoot>
+    <configFile>$SERVER_ROOT/conf/vhosts/{{ domain }}/vhost.conf</configFile>
+    <symbolicLink>1</symbolicLink>
+    <enableIPv4>1</enableIPv4>
+    <enableIPv6>1</enableIPv6>
+    <note>BPanel Managed Virtual Host</note>
+
+    <!-- Domains -->
+    <domains>
+        <domain>{{ domain }}</domain>
+        <domain>www.{{ domain }}</domain>
+    </domains>
+
+    <!-- SSL Configuration -->
+    <secure>1</secure>
+    <keyFile>/etc/letsencrypt/live/{{ domain }}/privkey.pem</keyFile>
+    <certFile>/etc/letsencrypt/live/{{ domain }}/fullchain.pem</certFile>
+    <certChain>1</certChain>
+
+    <!-- PHP Handler -->
+    <phpHandler>
+        <name>lsphp{{ php_version.replace('.', '') }}</name>
+        <address>uds://tmp/lsphp{{ php_version.replace('.', '') }}-fpm.sock</address>
+    </phpHandler>
+
+    <!-- Logging -->
+    <log>
+        <accessLog>
+            <useServer>0</useServer>
+            <file>$SERVER_ROOT/logs/{{ domain }}-access.log</file>
+            <pipedLogger>/usr/bin/cat</pipedLogger>
+            <logFormat></logFormat>
+            <logHeaders></logHeaders>
+            <rollingSize>10M</rollingSize>
+            <keepDays>30</keepDays>
+            <compressArchive>1</compressArchive>
+        </accessLog>
+        <errorLog>
+            <useServer>0</useServer>
+            <file>$SERVER_ROOT/logs/{{ domain }}-error.log</file>
+            <level>warn</level>
+            <rollingSize>10M</rollingSize>
+            <keepDays>30</keepDays>
+            <compressArchive>1</compressArchive>
+            <enableStderrLog>1</enableStderrLog>
+        </errorLog>
+        <enableLog>1</enableLog>
+    </log>
+
+    <!-- Index Files -->
+    <index>
+        <useServer>0</useServer>
+        <indexFiles>index.html,index.htm,index.php,index.shtml</indexFiles>
+    </index>
+
+    <!-- Security -->
+    <security>
+        <dirAllowed>1</dirAllowed>
+        <noabort>1</noabort>
+        <noiejoin>1</noiejoin>
+    </security>
+</virtualHost>

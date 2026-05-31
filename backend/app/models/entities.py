@@ -42,6 +42,7 @@ class Website(Base):
     status: Mapped[str] = mapped_column(String(32), default="pending")
     nginx_custom: Mapped[str] = mapped_column(Text, default="")
     waf_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    web_engine: Mapped[str] = mapped_column(String(50), default="nginx")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     owner: Mapped[User] = relationship(back_populates="websites")
@@ -116,4 +117,63 @@ class BackupSchedule(Base):
     last_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     last_status: Mapped[str] = mapped_column(String(32), default="pending")
     last_message: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CronJob(Base):
+    __tablename__ = "cron_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user: Mapped[str] = mapped_column(String(50), nullable=False, default="root")
+    command: Mapped[str] = mapped_column(Text, nullable=False)
+    schedule: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str] = mapped_column(String(255), nullable=True, default="")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_run: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    next_run: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class MailDomain(Base):
+    """Mail domain configuration for the mail server."""
+    __tablename__ = "mail_domains"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    domain: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    quota_gb: Mapped[int] = mapped_column(Integer, default=10)
+    catch_all: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    ssl_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    webmail_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    spam_checked: Mapped[bool] = mapped_column(Boolean, default=False)
+    spam_status: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    mailboxes: Mapped[List["Mailbox"]] = relationship(back_populates="domain")
+
+
+class Mailbox(Base):
+    """Mailbox within a mail domain."""
+    __tablename__ = "mailboxes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    domain_id: Mapped[int] = mapped_column(ForeignKey("mail_domains.id"), nullable=False)
+    username: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    quota_mb: Mapped[int] = mapped_column(Integer, default=5120)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    domain: Mapped["MailDomain"] = relationship(back_populates="mailboxes")
+
+
+class VirtualEnvironment(Base):
+    """Python virtual environment."""
+    __tablename__ = "virtual_environments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    path: Mapped[str] = mapped_column(String(500), nullable=False)
+    python_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    python_executable: Mapped[str] = mapped_column(String(500), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

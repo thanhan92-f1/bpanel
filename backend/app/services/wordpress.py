@@ -1,3 +1,4 @@
+import json
 import re
 import secrets as _secrets
 from pathlib import Path
@@ -178,3 +179,166 @@ def delete_wordpress(root_path: str):
         helper_args=[str(target)],
         fallback=["rm", "-rf", str(target)],
     )
+
+
+def _wp_cli_args(path: str, linux_user: str | None = None) -> list:
+    """Build common WP-CLI arguments for a given path and user."""
+    args = ["--path=" + path, "--allow-root"]
+    if linux_user:
+        return shell.privileged, [linux_user, "wp", *args], ["wp", *args]
+    return shell.privileged, args, ["wp", *args]
+
+
+def list_plugins(path: str, linux_user: str | None = None) -> list:
+    """List all installed WordPress plugins."""
+    wp_args = ["plugin", "list", "--format=json", f"--path={path}", "--allow-root"]
+    privileged_fn, helper_args, fallback_args = (shell.privileged, [linux_user, *wp_args], ["wp", *wp_args]) if linux_user else (None, None, None)
+    if privileged_fn:
+        result = privileged_fn("wp-site" if linux_user else "wp", helper_args=helper_args, fallback=fallback_args)
+    else:
+        result = shell.privileged("wp", helper_args=wp_args, fallback=["wp", *wp_args])
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to list plugins: {result.stderr or result.stdout}")
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        raise RuntimeError(f"Invalid JSON response from wp plugin list: {result.stdout}")
+
+
+def activate_plugin(path: str, plugin: str, linux_user: str | None = None):
+    """Activate a WordPress plugin."""
+    args = ["plugin", "activate", plugin, f"--path={path}", "--allow-root"]
+    helper = ["wp-site", [linux_user, *args], ["wp", *args]] if linux_user else None
+    if helper:
+        result = shell.privileged(helper[0], helper_args=helper[1], fallback=helper[2])
+    else:
+        result = shell.privileged("wp", helper_args=args, fallback=["wp", *args])
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to activate plugin '{plugin}': {result.stderr or result.stdout}")
+    return {"stdout": result.stdout, "stderr": result.stderr, "returncode": result.returncode}
+
+
+def deactivate_plugin(path: str, plugin: str, linux_user: str | None = None):
+    """Deactivate a WordPress plugin."""
+    args = ["plugin", "deactivate", plugin, f"--path={path}", "--allow-root"]
+    helper = ["wp-site", [linux_user, *args], ["wp", *args]] if linux_user else None
+    if helper:
+        result = shell.privileged(helper[0], helper_args=helper[1], fallback=helper[2])
+    else:
+        result = shell.privileged("wp", helper_args=args, fallback=["wp", *args])
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to deactivate plugin '{plugin}': {result.stderr or result.stdout}")
+    return {"stdout": result.stdout, "stderr": result.stderr, "returncode": result.returncode}
+
+
+def delete_plugin(path: str, plugin: str, linux_user: str | None = None):
+    """Delete a WordPress plugin."""
+    args = ["plugin", "delete", plugin, f"--path={path}", "--allow-root"]
+    helper = ["wp-site", [linux_user, *args], ["wp", *args]] if linux_user else None
+    if helper:
+        result = shell.privileged(helper[0], helper_args=helper[1], fallback=helper[2])
+    else:
+        result = shell.privileged("wp", helper_args=args, fallback=["wp", *args])
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to delete plugin '{plugin}': {result.stderr or result.stdout}")
+    return {"stdout": result.stdout, "stderr": result.stderr, "returncode": result.returncode}
+
+
+def list_themes(path: str, linux_user: str | None = None) -> list:
+    """List all installed WordPress themes."""
+    args = ["theme", "list", "--format=json", f"--path={path}", "--allow-root"]
+    helper = ["wp-site", [linux_user, *args], ["wp", *args]] if linux_user else None
+    if helper:
+        result = shell.privileged(helper[0], helper_args=helper[1], fallback=helper[2])
+    else:
+        result = shell.privileged("wp", helper_args=args, fallback=["wp", *args])
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to list themes: {result.stderr or result.stdout}")
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        raise RuntimeError(f"Invalid JSON response from wp theme list: {result.stdout}")
+
+
+def activate_theme(path: str, theme: str, linux_user: str | None = None):
+    """Activate a WordPress theme."""
+    args = ["theme", "activate", theme, f"--path={path}", "--allow-root"]
+    helper = ["wp-site", [linux_user, *args], ["wp", *args]] if linux_user else None
+    if helper:
+        result = shell.privileged(helper[0], helper_args=helper[1], fallback=helper[2])
+    else:
+        result = shell.privileged("wp", helper_args=args, fallback=["wp", *args])
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to activate theme '{theme}': {result.stderr or result.stdout}")
+    return {"stdout": result.stdout, "stderr": result.stderr, "returncode": result.returncode}
+
+
+def wp_health_check(path: str, linux_user: str | None = None) -> dict:
+    """Run WordPress health check using wp doctor."""
+    args = ["doctor", "check", "--all", f"--path={path}", "--allow-root"]
+    helper = ["wp-site", [linux_user, *args], ["wp", *args]] if linux_user else None
+    if helper:
+        result = shell.privileged(helper[0], helper_args=helper[1], fallback=helper[2])
+    else:
+        result = shell.privileged("wp", helper_args=args, fallback=["wp", *args])
+    if result.returncode != 0 and result.returncode != 1:
+        raise RuntimeError(f"Health check failed: {result.stderr or result.stdout}")
+    output = result.stdout + result.stderr
+    return {"returncode": result.returncode, "output": output}
+
+
+def create_staging(root_path: str, linux_user: str | None = None) -> str:
+    """Create a staging environment by cloning the site."""
+    public_path = Path(root_path) / "public_html"
+    staging_path = Path(root_path).parent / (Path(root_path).name + "-staging")
+    staging_public = staging_path / "public_html"
+    if staging_public.exists():
+        raise RuntimeError("Staging environment already exists")
+    shell.privileged(
+        "cp-site",
+        helper_args=[str(public_path), str(staging_public)],
+        fallback=["cp", "-r", str(public_path), str(staging_public)],
+    )
+    shell.privileged(
+        "site-path-fix",
+        helper_args=[str(staging_path), linux_user] if linux_user else [str(staging_path)],
+        fallback=["chown", "-R", f"{linux_user}:{linux_user}" if linux_user else "www-data:www-data", str(staging_path)],
+    )
+    return str(staging_path)
+
+
+def get_staging_status(root_path: str) -> dict:
+    """Check if staging environment exists and return its status."""
+    staging_path = Path(root_path).parent / (Path(root_path).name + "-staging")
+    staging_public = staging_path / "public_html"
+    exists = staging_public.exists()
+    if exists:
+        wp_index = staging_public / "index.php"
+        has_wordpress = wp_index.exists()
+        return {"exists": True, "path": str(staging_path), "has_wordpress": has_wordpress}
+    return {"exists": False, "path": str(staging_path), "has_wordpress": False}
+
+
+def push_staging_to_production(root_path: str, linux_user: str | None = None):
+    """Push staging environment to production by overwriting the production files."""
+    staging_path = Path(root_path).parent / (Path(root_path).name + "-staging")
+    staging_public = staging_path / "public_html"
+    public_path = Path(root_path) / "public_html"
+    if not staging_public.exists():
+        raise RuntimeError("Staging environment does not exist")
+    shell.privileged(
+        "rm-site",
+        helper_args=[str(public_path)],
+        fallback=["rm", "-rf", str(public_path)],
+    )
+    shell.privileged(
+        "cp-site",
+        helper_args=[str(staging_public), str(public_path)],
+        fallback=["cp", "-r", str(staging_public), str(public_path)],
+    )
+    shell.privileged(
+        "site-path-fix",
+        helper_args=[str(public_path), linux_user] if linux_user else [str(public_path)],
+        fallback=["chown", "-R", f"{linux_user}:{linux_user}" if linux_user else "www-data:www-data", str(public_path)],
+    )
+    return {"message": "Staging pushed to production successfully"}

@@ -11,8 +11,15 @@ def _safe_ini_value(value: str) -> str:
     return value
 
 
+SUPPORTED_PHP_VERSIONS = {
+    "5.2", "5.3", "5.4", "5.5", "5.6",
+    "7.0", "7.1", "7.2", "7.3", "7.4",
+    "8.0", "8.1", "8.2", "8.3", "8.4", "8.5"
+}
+
+
 def update_php_ini(payload: PhpConfigUpdate) -> str:
-    if payload.php_version not in {"8.3", "8.4"}:
+    if payload.php_version not in SUPPORTED_PHP_VERSIONS:
         raise ValueError("Unsupported PHP version")
     display_errors = "On" if str(payload.display_errors).lower() in {"1", "true", "on", "yes"} else "Off"
     content = "\n".join([
@@ -50,7 +57,7 @@ PHP_CONFIG_KEYS = {
 
 
 def read_php_ini(php_version: str) -> dict:
-    if php_version not in {"8.3", "8.4"}:
+    if php_version not in SUPPORTED_PHP_VERSIONS:
         raise ValueError("Unsupported PHP version")
     values = dict(PHP_CONFIG_KEYS)
     for path in [

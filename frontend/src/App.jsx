@@ -11,7 +11,7 @@ import 'ace-builds/src-noconflict/mode-php';
 import 'ace-builds/src-noconflict/mode-text';
 import 'ace-builds/src-noconflict/mode-yaml';
 import 'ace-builds/src-noconflict/theme-textmate';
-import { Archive, Clock, Code2, Copy, Cpu, Database, FileText, FolderOpen, Globe, HardDrive, Home, Image, KeyRound, Lock, LogIn, LogOut, MemoryStick, Menu, MoveRight, Network, Server, Settings as SettingsIcon, Shield, Trash2, TerminalIcon, Users, X, RefreshCw, Plus, Download, Upload, Play, Square, RotateCcw, AlertCircle } from 'lucide-react';
+import { Archive, Clock, Code, Code2, Copy, Cpu, Database, FileText, FolderOpen, Globe, HardDrive, Hexagon, Home, Image, KeyRound, Lock, LogIn, LogOut, Mail, Inbox, Send, Spam, MemoryStick, Menu, MoveRight, Network, Package, Server, Settings as SettingsIcon, Shield, ShieldCheck, Terminal as TerminalIcon, Trash2, Users, Unlock, X, RefreshCw, Plus, Download, Upload, Play, Square, RotateCcw, AlertCircle, Activity, ToggleLeft, ToggleRight, Container, Search, Eye, Edit, Save, ServerCog, AlertTriangle, CheckCircle, XCircle, Wrench, Box } from 'lucide-react';
 import { Terminal } from './components/Terminal';
 import './style.css';
 import './brand.css';
@@ -174,6 +174,20 @@ function App() {
   const [selectedWebsiteId, setSelectedWebsiteId] = useState(() => standaloneEditor?.websiteId || '');
   const [cronSchedule, setCronSchedule] = useState('0 2 * * *');
   const [cronCommand, setCronCommand] = useState('wp cron event run --due-now --allow-root');
+  // Cron jobs state
+  const [cronJobs, setCronJobs] = useState([]);
+  const [showCronModal, setShowCronModal] = useState(false);
+  const [editingCron, setEditingCron] = useState(null);
+  const [cronForm, setCronForm] = useState({ command: '', schedule: '', description: '' });
+  const [selectedPreset, setSelectedPreset] = useState('');
+  const [cronPresets, setCronPresets] = useState([]);
+  const [scheduleTypes, setScheduleTypes] = useState({});
+  const [cronPreview, setCronPreview] = useState({ expression: '', human_readable: '', next_runs: [] });
+  const [cronMinute, setCronMinute] = useState('*');
+  const [cronHour, setCronHour] = useState('*');
+  const [cronDayOfMonth, setCronDayOfMonth] = useState('*');
+  const [cronMonth, setCronMonth] = useState('*');
+  const [cronDayOfWeek, setCronDayOfWeek] = useState('*');
   const [filePath, setFilePath] = useState(() => standaloneEditor?.path || 'public_html/index.html');
   const [fileListPath, setFileListPath] = useState('public_html');
   const [fileUploadDir, setFileUploadDir] = useState('public_html');
@@ -213,6 +227,82 @@ function App() {
   const [updatesStatus, setUpdatesStatus] = useState(null);
   const [osAutoUpdate, setOsAutoUpdate] = useState({ enabled: true, mode: 'security', auto_reboot: false });
   const [panelAutoUpdate, setPanelAutoUpdate] = useState({ enabled: true, time: '03:30' });
+  // WordPress Toolkit state
+  const [wpToolkitViewer, setWpToolkitViewer] = useState(null); // { id, domain }
+  const [wpPlugins, setWpPlugins] = useState([]);
+  const [wpThemes, setWpThemes] = useState([]);
+  const [wpHealth, setWpHealth] = useState(null);
+  const [wpStagingStatus, setWpStagingStatus] = useState(null);
+  const [wpActiveTab, setWpActiveTab] = useState('plugins');
+  // Monitor state
+  const [monitorData, setMonitorData] = useState(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(2000); // 2 seconds
+  // PHP Management state
+  const [phpVersions, setPhpVersions] = useState([]);
+  const [phpAvailableVersions, setPhpAvailableVersions] = useState([]);
+  const [selectedPhpVersion, setSelectedPhpVersion] = useState('8.3');
+  const [phpExtensions, setPhpExtensions] = useState([]);
+  const [phpConfig, setPhpConfig] = useState({ php_version: '8.3', display_errors: 'Off', max_execution_time: 300, max_input_time: 600, max_input_vars: 10000, memory_limit: '512M', post_max_size: '1024M', upload_max_filesize: '1024M', disable_functions: '', opcache_enable: true, opcache_memory: '128', opcache_max_files: 10000, session_save_path: '/var/lib/php/sessions', session_name: 'PHPSESSID' });
+  const [phpInfo, setPhpInfo] = useState(null);
+  const [phpSlowlog, setPhpSlowlog] = useState(null);
+  const [phpFpmPools, setPhpFpmPools] = useState([]);
+  const [phpActiveTab, setPhpActiveTab] = useState('versions');
+  // FTP Manager state
+  const [ftpUsers, setFtpUsers] = useState([]);
+  const [ftpStatus, setFtpStatus] = useState(null);
+  const [newFtpUser, setNewFtpUser] = useState({ username: '', website_id: '', auto_password: true, password: '' });
+  // Mail state
+  const [mailDomains, setMailDomains] = useState([]);
+  const [selectedDomain, setSelectedDomain] = useState('');
+  const [mailboxes, setMailboxes] = useState([]);
+  const [selectedMailbox, setSelectedMailbox] = useState('');
+  const [emails, setEmails] = useState([]);
+  const [mailSettings, setMailSettings] = useState(null);
+  const [mailActiveTab, setMailActiveTab] = useState('domains');
+  const [mailFolder, setMailFolder] = useState('inbox');
+  const [selectedEmail, setSelectedEmail] = useState(null);
+  const [newMailDomain, setNewMailDomain] = useState({ domain: '', quota_gb: 10 });
+  const [newMailbox, setNewMailbox] = useState({ username: '', password: '', quota_gb: 1 });
+  // Python state
+  const [pythonVersion, setPythonVersion] = useState(null);
+  const [pythonVersions, setPythonVersions] = useState([]);
+  const [venvs, setVenvs] = useState([]);
+  const [selectedVenv, setSelectedVenv] = useState(null);
+  const [venvPackages, setVenvPackages] = useState([]);
+  const [pythonProcesses, setPythonProcesses] = useState([]);
+  const [newVenvName, setNewVenvName] = useState('');
+  const [newVenvVersion, setNewVenvVersion] = useState('');
+  const [installPackageName, setInstallPackageName] = useState('');
+  // Nginx Proxy state
+  const [proxyConfigs, setProxyConfigs] = useState([]);
+  const [proxyTemplates, setProxyTemplates] = useState([]);
+  const [proxyStatus, setProxyStatus] = useState(null);
+  const [showProxyModal, setShowProxyModal] = useState(false);
+  const [editingProxy, setEditingProxy] = useState(null);
+  const [newProxyConfig, setNewProxyConfig] = useState({
+    domain: '',
+    target_url: '',
+    template: 'default',
+    ssl_enabled: false,
+    connect_timeout: 60,
+    send_timeout: 60,
+    read_timeout: 60,
+  });
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [previewConfig, setPreviewConfig] = useState(null);
+  // WebServer state
+  const [webEngines, setWebEngines] = useState([]);
+  const [currentEngine, setCurrentEngine] = useState(null);
+  const [webserverStatus, setWebserverStatus] = useState({});
+  const [safetyCheck, setSafetyCheck] = useState(null);
+  const [websitesWithEngines, setWebsitesWithEngines] = useState([]);
+  // Docker state
+  const [dockerStatus, setDockerStatus] = useState(null);
+  const [containers, setContainers] = useState([]);
+  const [images, setImages] = useState([]);
+  const [selectedContainer, setSelectedContainer] = useState(null);
+  const [containerLogs, setContainerLogs] = useState('');
   const noticeTimer = useRef(null);
 
   // Auto-dismiss notices after 6 seconds
@@ -707,6 +797,165 @@ function App() {
 
   function openWebsiteTerminal(site) {
     setTerminalViewer({ id: site.id, domain: site.domain });
+  }
+
+  // WordPress Toolkit functions
+  function openWpToolkit(site) {
+    setWpToolkitViewer({ id: site.id, domain: site.domain });
+    setWpActiveTab('plugins');
+    loadWpPlugins(site.id);
+  }
+
+  async function loadWpPlugins(websiteId) {
+    const data = await request(`/wordpress/${websiteId}/plugins`);
+    if (data?.plugins) setWpPlugins(data.plugins);
+  }
+
+  async function loadWpThemes(websiteId) {
+    const data = await request(`/wordpress/${websiteId}/themes`);
+    if (data?.themes) setWpThemes(data.themes);
+  }
+
+  async function loadWpHealth(websiteId) {
+    const data = await request(`/wordpress/${websiteId}/health`);
+    if (data?.health) setWpHealth(data.health);
+  }
+
+  async function loadWpStagingStatus(websiteId) {
+    const data = await request(`/wordpress/${websiteId}/staging/status`);
+    if (data?.staging) setWpStagingStatus(data.staging);
+  }
+
+  async function toggleWpPlugin(websiteId, plugin, action) {
+    const data = await request(`/wordpress/${websiteId}/plugins/${plugin}/${action}`, { method: 'POST' });
+    if (data) {
+      setNotice(data.message);
+      await loadWpPlugins(websiteId);
+    }
+  }
+
+  async function deleteWpPlugin(websiteId, plugin) {
+    if (!confirm(`Delete plugin '${plugin}'? This cannot be undone.`)) return;
+    const data = await request(`/wordpress/${websiteId}/plugins/${plugin}/delete`, { method: 'POST' });
+    if (data) {
+      setNotice(data.message);
+      await loadWpPlugins(websiteId);
+    }
+  }
+
+  async function toggleWpTheme(websiteId, theme) {
+    const data = await request(`/wordpress/${websiteId}/themes/${theme}/activate`, { method: 'POST' });
+    if (data) {
+      setNotice(data.message);
+      await loadWpThemes(websiteId);
+    }
+  }
+
+  async function createWpStaging(websiteId) {
+    const data = await request(`/wordpress/${websiteId}/staging/create`, { method: 'POST' });
+    if (data) {
+      setNotice(data.message);
+      await loadWpStagingStatus(websiteId);
+    }
+  }
+
+  async function pushWpStagingToProduction(websiteId) {
+    if (!confirm('Push staging to production? This will overwrite the production files.')) return;
+    const data = await request(`/wordpress/${websiteId}/staging/push-to-production`, { method: 'POST' });
+    if (data) setNotice(data.message);
+  }
+
+  function renderWpToolkit() {
+    if (!wpToolkitViewer) return null;
+    const websiteId = wpToolkitViewer.id;
+    const tabs = [
+      { key: 'plugins', label: 'Plugins' },
+      { key: 'themes', label: 'Themes' },
+      { key: 'health', label: 'Health' },
+      { key: 'staging', label: 'Staging' },
+    ];
+    return <section className="section wp-toolkit-modal">
+      <div className="section-title">
+        <div>
+          <h2>WordPress Toolkit - {wpToolkitViewer.domain}</h2>
+        </div>
+        <button className="secondary-light" onClick={() => setWpToolkitViewer(null)}><X size={14}/> Close</button>
+      </div>
+      <div className="segmented-control">
+        {tabs.map(tab => (
+          <button key={tab.key} className={wpActiveTab === tab.key ? 'active' : ''} onClick={() => {
+            setWpActiveTab(tab.key);
+            if (tab.key === 'plugins') loadWpPlugins(websiteId);
+            else if (tab.key === 'themes') loadWpThemes(websiteId);
+            else if (tab.key === 'health') loadWpHealth(websiteId);
+            else if (tab.key === 'staging') loadWpStagingStatus(websiteId);
+          }}>{tab.label}</button>
+        ))}
+      </div>
+      {wpActiveTab === 'plugins' && <div className="wp-toolkit-content">
+        {wpPlugins.length === 0 ? <p className="hint">No plugins found or loading...</p> : (
+          <div className="table">
+            {wpPlugins.map(plugin => (
+              <div className="row" key={plugin.name}>
+                <span><strong>{plugin.name}</strong><small>{plugin.description?.substring(0, 80) || ''}</small></span>
+                <span className={`badge ${plugin.status === 'active' ? 'ok' : ''}`}>{plugin.status}</span>
+                <span>Version {plugin.version}</span>
+                <div className="row-actions">
+                  {plugin.status === 'active' ? (
+                    <button className="mini secondary-light" disabled={!!loading} onClick={() => toggleWpPlugin(websiteId, plugin.name, 'deactivate')}>Deactivate</button>
+                  ) : (
+                    <button className="mini secondary-light" disabled={!!loading} onClick={() => toggleWpPlugin(websiteId, plugin.name, 'activate')}>Activate</button>
+                  )}
+                  {plugin.status !== 'active' && (
+                    <button className="mini danger" disabled={!!loading} onClick={() => deleteWpPlugin(websiteId, plugin.name)}>Delete</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>}
+      {wpActiveTab === 'themes' && <div className="wp-toolkit-content">
+        {wpThemes.length === 0 ? <p className="hint">No themes found or loading...</p> : (
+          <div className="table">
+            {wpThemes.map(theme => (
+              <div className="row" key={theme.name}>
+                <span><strong>{theme.name}</strong><small>{theme.description?.substring(0, 80) || ''}</small></span>
+                <span className={`badge ${theme.status === 'active' ? 'ok' : ''}`}>{theme.status}</span>
+                <span>Version {theme.version}</span>
+                <div className="row-actions">
+                  {theme.status !== 'active' && (
+                    <button className="mini secondary-light" disabled={!!loading} onClick={() => toggleWpTheme(websiteId, theme.name)}>Activate</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>}
+      {wpActiveTab === 'health' && <div className="wp-toolkit-content">
+        {!wpHealth ? <button disabled={!!loading} onClick={() => loadWpHealth(websiteId)}>Run Health Check</button> : (
+          <div className="info-box">
+            <pre>{wpHealth.output || 'Health check completed'}</pre>
+            <button disabled={!!loading} onClick={() => loadWpHealth(websiteId)} style={{marginTop: 8}}>Refresh</button>
+          </div>
+        )}
+      </div>}
+      {wpActiveTab === 'staging' && <div className="wp-toolkit-content">
+        {!wpStagingStatus ? <p className="hint">Loading...</p> : (
+          <div className="info-box">
+            <p><strong>Staging Environment Status:</strong></p>
+            <p>Exists: {wpStagingStatus.exists ? 'Yes' : 'No'}</p>
+            {wpStagingStatus.exists && <p>Has WordPress: {wpStagingStatus.has_wordpress ? 'Yes' : 'No'}</p>}
+            <div className="actions" style={{marginTop: 8}}>
+              {!wpStagingStatus.exists && <button disabled={!!loading || !isAdmin} onClick={() => createWpStaging(websiteId)}>Create Staging</button>}
+              {wpStagingStatus.exists && <button disabled={!!loading || !isAdmin} onClick={() => pushWpStagingToProduction(websiteId)} className="danger">Push to Production</button>}
+            </div>
+            {!isAdmin && <p className="hint">Only admins can create or push staging environments.</p>}
+          </div>
+        )}
+      </div>}
+    </section>;
   }
 
   async function toggleWebsiteWaf(site) {
@@ -1369,6 +1618,249 @@ function App() {
     if (data) { setNotice((data.stdout || data.stderr || 'Panel auto update saved.').trim()); await loadUpdates(); }
   }
 
+  async function loadMonitorData() {
+    const data = await request('/monitor/all');
+    if (data) setMonitorData(data);
+  }
+
+  // PHP Management functions
+  async function loadPhpVersions() {
+    const data = await request('/php/versions');
+    if (data) setPhpVersions(Array.isArray(data) ? data : []);
+  }
+
+  async function loadPhpAvailableVersions() {
+    const data = await request('/php/versions/available');
+    if (data) setPhpAvailableVersions(Array.isArray(data) ? data : []);
+  }
+
+  async function installPhpVersion(version) {
+    if (!version) return;
+    if (!confirm(`Install PHP ${version}?`)) return;
+    const data = await request(`/php/versions/${version}/install`, { method: 'POST' }, `Installing PHP ${version}...`);
+    if (data) {
+      setNotice(data.message || `PHP ${version} installation started.`);
+      await loadPhpVersions();
+      await loadPhpAvailableVersions();
+    }
+  }
+
+  async function loadPhpExtensions() {
+    const data = await request(`/php/${selectedPhpVersion}/extensions`);
+    if (data) setPhpExtensions(Array.isArray(data) ? data : []);
+  }
+
+  async function installPhpExtension(ext) {
+    if (!ext || !selectedPhpVersion) return;
+    const data = await request(`/php/${selectedPhpVersion}/extensions/${ext}/install`, { method: 'POST' }, `Installing ${ext}...`);
+    if (data) {
+      setNotice(data.message || `Extension ${ext} installation started.`);
+      await loadPhpExtensions();
+    }
+  }
+
+  async function loadPhpConfig() {
+    const data = await request(`/php/${selectedPhpVersion}/config`);
+    if (data) setPhpConfig(prev => ({ ...prev, ...data, php_version: selectedPhpVersion }));
+  }
+
+  async function updatePhpConfig() {
+    const data = await request(`/php/${selectedPhpVersion}/config`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...phpConfig,
+        max_execution_time: Number(phpConfig.max_execution_time),
+        max_input_time: Number(phpConfig.max_input_time),
+        max_input_vars: Number(phpConfig.max_input_vars),
+        opcache_max_files: Number(phpConfig.opcache_max_files),
+      }),
+    }, 'Updating PHP config...');
+    if (data) {
+      setNotice(data.message || 'PHP config updated.');
+      await loadPhpConfig();
+    }
+  }
+
+  async function loadPhpInfo() {
+    const data = await request(`/php/${selectedPhpVersion}/phpinfo`);
+    if (data) setPhpInfo(data);
+  }
+
+  async function loadPhpSlowlog() {
+    const data = await request(`/php/${selectedPhpVersion}/slowlog`);
+    if (data) setPhpSlowlog(data);
+  }
+
+  async function loadPhpFpmPools() {
+    const data = await request(`/php/${selectedPhpVersion}/fpm/pools`);
+    if (data) setPhpFpmPools(Array.isArray(data) ? data : []);
+  }
+
+  async function restartPhpFpm() {
+    if (!confirm(`Restart PHP ${selectedPhpVersion}-FPM?`)) return;
+    const data = await request(`/php/${selectedPhpVersion}/fpm/restart`, { method: 'POST' }, `Restarting PHP ${selectedPhpVersion}-FPM...`);
+    if (data) {
+      setNotice(data.message || `PHP ${selectedPhpVersion}-FPM restarted.`);
+    }
+  }
+
+  async function optimizePhp() {
+    const data = await request(`/php/${selectedPhpVersion}/optimize`, { method: 'POST' }, 'Optimizing PHP...');
+    if (data) {
+      setNotice(data.message || 'PHP optimized.');
+      await loadPhpConfig();
+    }
+  }
+
+  // Mail Server functions
+  async function loadMailDomains() {
+    const data = await request('/mail/domains');
+    if (data) setMailDomains(Array.isArray(data) ? data : []);
+  }
+
+  // FTP Manager functions
+  async function loadFtpStatus() {
+    const data = await request('/ftp/status');
+    if (data) setFtpStatus(data);
+  }
+
+  async function loadFtpUsers() {
+    const data = await request('/ftp/users');
+    if (data) setFtpUsers(Array.isArray(data) ? data : []);
+  }
+
+  async function createFtpUser() {
+    if (!newFtpUser.username) { setError('Please enter a username.'); return; }
+    if (!newFtpUser.website_id) { setError('Please select a website.'); return; }
+    const body = {
+      username: newFtpUser.username.toLowerCase(),
+      website_id: Number(newFtpUser.website_id),
+    };
+    if (!newFtpUser.auto_password && newFtpUser.password) {
+      body.password = newFtpUser.password;
+    }
+    const data = await request('/ftp/users', { method: 'POST', body: JSON.stringify(body) }, 'Creating FTP user...');
+    if (data) {
+      setNotice(data.password ? `Created FTP user: ${data.username}\nPassword: ${data.password}` : `Created FTP user: ${data.username}`);
+      setNewFtpUser({ username: '', website_id: '', auto_password: true, password: '' });
+      await loadFtpUsers();
+    }
+  }
+
+  async function deleteFtpUser(username) {
+    if (!confirm(`Delete FTP user ${username}?`)) return;
+    const data = await request(`/ftp/users/${encodeURIComponent(username)}`, { method: 'DELETE' }, `Deleting FTP user ${username}...`);
+    if (data) {
+      setNotice(`Deleted FTP user ${username}`);
+      await loadFtpUsers();
+    }
+  }
+
+  async function changeFtpPassword(username) {
+    const password = prompt(`Enter a new password for FTP user ${username}:`);
+    if (!password) return;
+    const data = await request(`/ftp/users/${encodeURIComponent(username)}/password`, {
+      method: 'PUT',
+      body: JSON.stringify({ password }),
+    }, `Changing password for ${username}...`);
+    if (data?.message) setNotice(data.message);
+  }
+
+  async function configureFtp() {
+    const data = await request('/ftp/configure', { method: 'POST' }, 'Configuring FTP server...');
+    if (data?.message) {
+      setNotice(data.message);
+      await loadFtpStatus();
+    }
+  }
+
+  // Go Project state
+  const [goVersion, setGoVersion] = useState('');
+  const [goVersions, setGoVersions] = useState([]);
+  const [goProcesses, setGoProcesses] = useState([]);
+  const [selectedProcess, setSelectedProcess] = useState(null);
+  const [goLogs, setGoLogs] = useState('');
+  const [goBuildPath, setGoBuildPath] = useState('');
+  const [goRunPath, setGoRunPath] = useState('');
+  const [goModulePath, setGoModulePath] = useState('');
+  const [goModules, setGoModules] = useState([]);
+  const [installingVersion, setInstallingVersion] = useState('');
+
+  // Go Project functions
+  async function loadGoVersion() {
+    const data = await request('/golang/version');
+    if (data?.version) setGoVersion(data.version);
+  }
+
+  async function loadGoVersions() {
+    const data = await request('/golang/versions');
+    if (data?.versions) setGoVersions(data.versions);
+  }
+
+  async function installGoVersion(version) {
+    setInstallingVersion(version);
+    const data = await request(`/golang/versions/${encodeURIComponent(version)}/install`, { method: 'POST' }, `Installing Go ${version}...`);
+    if (data?.message) setNotice(data.message);
+    await loadGoVersion();
+    await loadGoVersions();
+    setInstallingVersion('');
+  }
+
+  async function loadGoProcesses() {
+    const data = await request('/golang/processes');
+    if (data?.processes) setGoProcesses(data.processes);
+  }
+
+  async function stopGoProcess(name) {
+    const data = await request(`/golang/processes/${encodeURIComponent(name)}/stop`, { method: 'POST' }, `Stopping ${name}...`);
+    if (data?.message) setNotice(data.message);
+    await loadGoProcesses();
+  }
+
+  async function restartGoProcess(name) {
+    const data = await request(`/golang/processes/${encodeURIComponent(name)}/restart`, { method: 'POST' }, `Restarting ${name}...`);
+    if (data?.message) setNotice(data.message);
+    await loadGoProcesses();
+  }
+
+  async function viewGoProcessLogs(name) {
+    setSelectedProcess(name);
+    const data = await request(`/golang/processes/${encodeURIComponent(name)}/logs`);
+    if (data?.logs) setGoLogs(data.logs);
+    else setGoLogs(data?.message || 'No logs available');
+  }
+
+  async function buildGoProject() {
+    if (!goBuildPath) { setError('Please enter the project path.'); return; }
+    const data = await request('/golang/build', {
+      method: 'POST',
+      body: JSON.stringify({ path: goBuildPath }),
+    }, 'Building Go project...');
+    if (data?.message) setNotice(data.message);
+  }
+
+  async function runGoProject() {
+    if (!goRunPath) { setError('Please enter the project path.'); return; }
+    const data = await request('/golang/run', {
+      method: 'POST',
+      body: JSON.stringify({ path: goRunPath }),
+    }, 'Running Go project...');
+    if (data?.message) setNotice(data.message);
+    await loadGoProcesses();
+  }
+
+  async function loadGoModules(path) {
+    if (!path) return;
+    const data = await request(`/golang/modules?path=${encodeURIComponent(path)}`);
+    if (data?.modules) setGoModules(data.modules);
+  }
+
+  async function setupGoForWebsite(websiteId) {
+    if (!websiteId) { setError('Please select a website.'); return; }
+    const data = await request(`/golang/setup/${encodeURIComponent(websiteId)}`, { method: 'POST' }, 'Setting up Go for website...');
+    if (data?.message) setNotice(data.message);
+  }
+
   useEffect(() => {
     if (isAuthenticated) {
       refreshAll();
@@ -1422,7 +1914,18 @@ function App() {
     if (isAuthenticated && page === 'settings') loadPanelSettings();
     if (isAuthenticated && page === 'updates' && currentUser?.role === 'admin') loadUpdates();
     if (isAuthenticated && page === 'backups' && currentUser?.role === 'admin') { loadUsers(); loadSftpTargets(); loadBackupSchedules(); loadRestoreBackups(); }
+    if (isAuthenticated && page === 'monitor') loadMonitorData();
+    if (isAuthenticated && page === 'ftp') { loadFtpStatus(); loadFtpUsers(); }
+    if (isAuthenticated && page === 'docker') { loadDockerStatus(); loadContainers(); loadImages(); }
+    if (isAuthenticated && page === 'golang') { loadGoVersion(); loadGoVersions(); loadGoProcesses(); }
   }, [isAuthenticated, page, currentUser?.role]);
+
+  useEffect(() => {
+    if (!isAuthenticated || page !== 'monitor' || !autoRefresh) return undefined;
+    loadMonitorData();
+    const timer = setInterval(loadMonitorData, refreshInterval);
+    return () => clearInterval(timer);
+  }, [isAuthenticated, page, autoRefresh, refreshInterval]);
 
   useEffect(() => { setMobileMenuOpen(false); }, [page]);
 
@@ -1441,12 +1944,16 @@ function App() {
     ['files', 'File manager', FolderOpen],
     ['backups', 'Backups', Archive],
     ['security', 'Security', Shield],
-    ...(isAdmin ? [['php', 'PHP config', Code2]] : []),
+    ...(isAdmin ? [['php', 'PHP', Code]] : []),
     ...(isAdmin ? [['firewall', 'Firewall', Shield]] : []),
+    ...(isAdmin ? [['proxy', 'Proxy', Globe]] : []),
     ...(isAdmin ? [['updates', 'Updates', RefreshCw]] : []),
     ['services', 'Services Status', Server],
+    ...(isAdmin ? [['ftp', 'FTP Manager', Server]] : []),
+    ['docker', 'Docker', Container],
     ...(isAdmin ? [['users', 'Panel users', Users]] : []),
     ...(isAdmin ? [['settings', 'Settings', SettingsIcon]] : []),
+    ['monitor', 'Monitor', Activity],
   ];
 
   const currentSite = websites.find(site => String(site.id) === String(selectedWebsiteId));
@@ -1670,6 +2177,7 @@ function App() {
               {isAdmin && <button disabled={!!loading} onClick={() => openNginxCustom(site)}><Code2 size={14}/> Nginx</button>}
               {isAdmin && <button disabled={!!loading} onClick={() => toggleWebsiteWaf(site)}><Shield size={14}/> {site.waf_enabled ? 'WAF off' : 'WAF on'}</button>}
               {site.app_type === 'wordpress' && <button disabled={!!loading} onClick={() => fixWordPressPermissions(site.id)}>Fix permissions</button>}
+              {site.app_type === 'wordpress' && <button disabled={!!loading} onClick={() => openWpToolkit(site)}><Globe size={14}/> WP Toolkit</button>}
               <button className="danger" disabled={!!loading} onClick={() => deleteWebsite(site.id)}><Trash2 size={14}/> Delete</button>
             </div>
           </article>)}
@@ -1732,6 +2240,7 @@ function App() {
           <Terminal websiteId={terminalViewer.id} />
         </div>
       </section>}
+      {wpToolkitViewer && renderWpToolkit()}
     </>;
   }
 
@@ -2225,6 +2734,265 @@ function App() {
     </>;
   }
 
+  function renderMonitor() {
+    const sysInfo = monitorData?.system_info || {};
+    const cpuInfo = monitorData?.cpu_info || {};
+    const load = monitorData?.load || {};
+    const cpu = monitorData?.cpu || {};
+    const memory = monitorData?.memory || {};
+    const swap = monitorData?.swap || {};
+    const diskUsage = monitorData?.disk_usage || {};
+    const diskIo = monitorData?.disk_io || {};
+    const networkIo = monitorData?.network_io || {};
+    const processes = monitorData?.processes || [];
+
+    return <>
+      <section className="section">
+        <div className="section-title">
+          <div>
+            <h2>System Monitor</h2>
+            <p className="hint">{sysInfo.hostname} - {sysInfo.os}</p>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <label className="check-line" style={{ margin: 0 }}>
+              <input type="checkbox" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
+              <span>Auto-refresh</span>
+            </label>
+            <select value={refreshInterval} onChange={e => setRefreshInterval(Number(e.target.value))} disabled={!autoRefresh}>
+              <option value={1000}>1s</option>
+              <option value={2000}>2s</option>
+              <option value={5000}>5s</option>
+              <option value={10000}>10s</option>
+            </select>
+            <button disabled={!!loading} onClick={loadMonitorData}><RefreshCw size={15}/> Refresh</button>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <h2>System Information</h2>
+        <div className="monitor-info-grid">
+          <div className="monitor-info-item">
+            <span className="monitor-info-label">Hostname</span>
+            <span className="monitor-info-value">{sysInfo.hostname || '--'}</span>
+          </div>
+          <div className="monitor-info-item">
+            <span className="monitor-info-label">Operating System</span>
+            <span className="monitor-info-value">{sysInfo.os || '--'}</span>
+          </div>
+          <div className="monitor-info-item">
+            <span className="monitor-info-label">Kernel</span>
+            <span className="monitor-info-value">{sysInfo.kernel || '--'}</span>
+          </div>
+          <div className="monitor-info-item">
+            <span className="monitor-info-label">Uptime</span>
+            <span className="monitor-info-value">{sysInfo.uptime || '--'}</span>
+          </div>
+          <div className="monitor-info-item">
+            <span className="monitor-info-label">CPU Model</span>
+            <span className="monitor-info-value">{cpuInfo.model || '--'}</span>
+          </div>
+          <div className="monitor-info-item">
+            <span className="monitor-info-label">CPU Cores / Threads</span>
+            <span className="monitor-info-value">{cpuInfo.cores || '--'} / {cpuInfo.threads || '--'}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <h2>Load Average</h2>
+        <div className="resource-grid">
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><Activity size={16}/></span><span>1 min</span></div>
+            <strong>{load['1min']?.toFixed(2) || '--'}</strong>
+            <small>Load average</small>
+          </div>
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><Activity size={16}/></span><span>5 min</span></div>
+            <strong>{load['5min']?.toFixed(2) || '--'}</strong>
+            <small>Load average</small>
+          </div>
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><Activity size={16}/></span><span>15 min</span></div>
+            <strong>{load['15min']?.toFixed(2) || '--'}</strong>
+            <small>Load average</small>
+          </div>
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><Cpu size={16}/></span><span>CPUs</span></div>
+            <strong>{load.cpus || '--'}</strong>
+            <small>Logical cores</small>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <h2>CPU Usage</h2>
+        <div className="resource-grid">
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><Cpu size={16}/></span><span>User</span></div>
+            <strong>{formatPercent(cpu.user)}</strong>
+            <div className="resource-track"><span style={{ width: `${clampPercent(cpu.user)}%` }}></span></div>
+            <small>{cpu.user?.toFixed(1) || 0}%</small>
+          </div>
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><Cpu size={16}/></span><span>System</span></div>
+            <strong>{formatPercent(cpu.system)}</strong>
+            <div className="resource-track"><span style={{ width: `${clampPercent(cpu.system)}%` }}></span></div>
+            <small>{cpu.system?.toFixed(1) || 0}%</small>
+          </div>
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><Cpu size={16}/></span><span>Idle</span></div>
+            <strong>{formatPercent(cpu.idle)}</strong>
+            <div className="resource-track"><span style={{ width: `${clampPercent(cpu.idle)}%` }}></span></div>
+            <small>{cpu.idle?.toFixed(1) || 0}%</small>
+          </div>
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><Cpu size={16}/></span><span>I/O Wait</span></div>
+            <strong>{formatPercent(cpu.iowait)}</strong>
+            <div className="resource-track"><span style={{ width: `${clampPercent(cpu.iowait)}%` }}></span></div>
+            <small>{cpu.iowait?.toFixed(1) || 0}%</small>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <h2>Memory Usage</h2>
+        <div className="resource-grid">
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><MemoryStick size={16}/></span><span>Used</span></div>
+            <strong>{formatBytes(memory.used)}</strong>
+            <div className="resource-track"><span style={{ width: `${clampPercent(memory.percent)}%` }}></span></div>
+            <small>{memory.percent?.toFixed(1) || 0}% of {formatBytes(memory.total)}</small>
+          </div>
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><MemoryStick size={16}/></span><span>Free</span></div>
+            <strong>{formatBytes(memory.free)}</strong>
+            <small>{formatBytes(memory.free)}</small>
+          </div>
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><MemoryStick size={16}/></span><span>Available</span></div>
+            <strong>{formatBytes(memory.available)}</strong>
+            <small>{formatBytes(memory.available)}</small>
+          </div>
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><MemoryStick size={16}/></span><span>Cached</span></div>
+            <strong>{formatBytes(memory.cached)}</strong>
+            <small>{formatBytes(memory.buffers)} buffers</small>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <h2>Swap Usage</h2>
+        <div className="resource-grid">
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><HardDrive size={16}/></span><span>Swap</span></div>
+            <strong>{formatPercent(swap.percent)}</strong>
+            <div className="resource-track"><span style={{ width: `${clampPercent(swap.percent)}%` }}></span></div>
+            <small>{formatBytes(swap.used)} / {formatBytes(swap.total)}</small>
+          </div>
+          <div className="resource-card">
+            <div className="resource-head"><span className="resource-icon"><HardDrive size={16}/></span><span>Free</span></div>
+            <strong>{formatBytes(swap.free)}</strong>
+            <small>Swap free</small>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <h2>Disk Usage</h2>
+        {Object.keys(diskUsage).length === 0 ? <p className="hint">No disk data available</p> : (
+          <div className="resource-grid">
+            {Object.entries(diskUsage).map(([mount, info]) => (
+              <div className="resource-card" key={mount}>
+                <div className="resource-head"><span className="resource-icon"><HardDrive size={16}/></span><span>{mount}</span></div>
+                <strong>{formatPercent(info.percent)}</strong>
+                <div className="resource-track"><span style={{ width: `${clampPercent(info.percent)}%` }}></span></div>
+                <small>{formatBytes(info.used)} / {formatBytes(info.total)}</small>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="section">
+        <h2>Disk I/O</h2>
+        {Object.keys(diskIo).length === 0 ? <p className="hint">No disk I/O data available</p> : (
+          <div className="table">
+            <div className="row header-row">
+              <span>Device</span>
+              <span>Reads</span>
+              <span>Writes</span>
+              <span>Read Bytes</span>
+              <span>Write Bytes</span>
+            </div>
+            {Object.entries(diskIo).map(([device, stats]) => (
+              <div className="row" key={device}>
+                <span><strong>{device}</strong></span>
+                <span>{formatNumber(stats.reads)}</span>
+                <span>{formatNumber(stats.writes)}</span>
+                <span>{formatBytes(stats.read_bytes)}</span>
+                <span>{formatBytes(stats.write_bytes)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="section">
+        <h2>Network I/O</h2>
+        {Object.keys(networkIo).length === 0 ? <p className="hint">No network data available</p> : (
+          <div className="table">
+            <div className="row header-row">
+              <span>Interface</span>
+              <span>RX Bytes</span>
+              <span>RX Packets</span>
+              <span>TX Bytes</span>
+              <span>TX Packets</span>
+            </div>
+            {Object.entries(networkIo).map(([iface, stats]) => (
+              <div className="row" key={iface}>
+                <span><strong>{iface}</strong></span>
+                <span>{formatBytes(stats.rx_bytes)}</span>
+                <span>{formatNumber(stats.rx_packets)}</span>
+                <span>{formatBytes(stats.tx_bytes)}</span>
+                <span>{formatNumber(stats.tx_packets)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="section">
+        <h2>Top Processes</h2>
+        {processes.length === 0 ? <p className="hint">No process data available</p> : (
+          <div className="table">
+            <div className="row header-row">
+              <span>PID</span>
+              <span>Name</span>
+              <span>CPU %</span>
+              <span>MEM %</span>
+            </div>
+            {processes.slice(0, 10).map(proc => (
+              <div className="row" key={proc.pid}>
+                <span>{proc.pid}</span>
+                <span title={proc.name}>{proc.name.length > 30 ? proc.name.substring(0, 30) + '...' : proc.name}</span>
+                <span className={proc.cpu > 50 ? 'badge bad' : ''}>{proc.cpu?.toFixed(1)}</span>
+                <span>{proc.mem?.toFixed(1)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </>;
+  }
+
+  function formatNumber(value) {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return '--';
+    return amount.toLocaleString();
+  }
+
   function renderUsers() {
     if (!isAdmin) return <section className="section"><h2>Users</h2><p className="hint">No permission.</p></section>;
     return <>
@@ -2331,7 +3099,9 @@ function App() {
     if (page === 'updates') return renderUpdates();
     if (page === 'services') return renderServices();
     if (page === 'settings') return renderPanelSettings();
+    if (page === 'monitor') return renderMonitor();
     if (page === 'users') return renderUsers();
+    if (page === 'docker') return renderDocker();
     return renderDashboard();
   }
 
