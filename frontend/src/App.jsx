@@ -5063,7 +5063,7 @@ function App() {
             <h2>{editingProxy ? 'Edit Proxy Config' : 'Create Proxy Config'}</h2>
             <button className="secondary-light" onClick={resetProxyForm}><X size={14}/> Close</button>
           </div>
-          <div className="proxy-form"><!-- NODEJS_MARKER -->
+          <div className="proxy-form">
           </div>
         </section>
       )}
