@@ -1827,6 +1827,78 @@ function App() {
     }
   }
 
+  // Python functions
+  async function loadPythonVersion() {
+    const data = await request('/python/version');
+    if (data) setPythonVersion(data.version);
+  }
+
+  async function loadPythonVersions() {
+    const data = await request('/python/versions');
+    if (data?.versions) setPythonVersions(data.versions);
+  }
+
+  async function loadVenvs() {
+    const data = await request('/python/venvs');
+    if (data?.venvs) setVenvs(data.venvs);
+  }
+
+  async function createVenv() {
+    if (!newVenvName) { setError('Please enter a venv name.'); return; }
+    const data = await request('/python/venv', {
+      method: 'POST',
+      body: JSON.stringify({ name: newVenvName, python_version: newVenvVersion || undefined }),
+    }, 'Creating virtual environment...');
+    if (data) {
+      setNotice(data.message || `Created virtual environment: ${newVenvName}`);
+      setNewVenvName('');
+      setNewVenvVersion('');
+      await loadVenvs();
+    }
+  }
+
+  async function deleteVenv(venvId) {
+    if (!confirm(`Delete this virtual environment?`)) return;
+    const data = await request(`/python/venv/${venvId}`, { method: 'DELETE' }, 'Deleting virtual environment...');
+    if (data) {
+      setNotice(data.message || 'Virtual environment deleted');
+      if (selectedVenv?.id === venvId) setSelectedVenv(null);
+      await loadVenvs();
+    }
+  }
+
+  async function loadVenvPackages(venvId) {
+    const data = await request(`/python/venv/${venvId}/packages`);
+    if (data?.packages) {
+      setVenvPackages(data.packages);
+      const venv = venvs.find(v => v.id === venvId);
+      setSelectedVenv(venv || { id: venvId, name: 'Unknown' });
+    }
+  }
+
+  async function installVenvPackage(venvId) {
+    if (!installPackageName) { setError('Please enter a package name.'); return; }
+    const data = await request(`/python/venv/${venvId}/packages`, {
+      method: 'POST',
+      body: JSON.stringify({ package: installPackageName }),
+    }, 'Installing package...');
+    if (data?.message) setNotice(data.message);
+    setInstallPackageName('');
+    await loadVenvPackages(venvId);
+  }
+
+  async function uninstallVenvPackage(venvId, packageName) {
+    if (!confirm(`Uninstall package '${packageName}'?`)) return;
+    const data = await request(`/python/venv/${venvId}/packages/${encodeURIComponent(packageName)}`, { method: 'DELETE' }, 'Uninstalling package...');
+    if (data?.message) setNotice(data.message);
+    await loadVenvPackages(venvId);
+  }
+
+  async function loadPythonProcesses() {
+    const data = await request('/python/processes');
+    if (data?.processes) setPythonProcesses(data.processes);
+  }
+
   // Go Project state
   const [goVersion, setGoVersion] = useState('');
   const [goVersions, setGoVersions] = useState([]);
@@ -3160,6 +3232,8 @@ function App() {
     if (page === 'monitor') return renderMonitor();
     if (page === 'users') return renderUsers();
     if (page === 'docker') return renderDocker();
+    if (page === 'golang') return renderGo();
+    if (page === 'webserver') return renderWebserver();
     return renderDashboard();
   }
 
