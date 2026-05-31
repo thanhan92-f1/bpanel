@@ -29,25 +29,25 @@ PANEL_PORT="${PANEL_PORT:-2222}"
 SERVER_IP=""
 ENABLE_SSL="${ENABLE_SSL:-auto}"
 SSL_EMAIL="${SSL_EMAIL:-}"
-# Node.js options (comma-separated versions, empty = skip installation)
-NODE_MAJOR="${NODE_MAJOR:-22}"
-NODE_VERSIONS="${NODE_VERSIONS:-22,20,18}"
-# Go options (comma-separated versions, empty = skip installation)
+# Optional features (true/false = install/skip)
+ENABLE_DOCKER="${ENABLE_DOCKER:-false}"
+ENABLE_REDIS="${ENABLE_REDIS:-false}"
+ENABLE_WP_CLI="${ENABLE_WP_CLI:-false}"
+ENABLE_COMPOSER="${ENABLE_COMPOSER:-false}"
+ENABLE_FAIL2BAN="${ENABLE_FAIL2BAN:-false}"
+# Node.js versions (comma-separated, empty = skip)
+NODE_VERSIONS="${NODE_VERSIONS:-}"
+# Go versions (comma-separated, empty = skip)
 GO_VERSIONS="${GO_VERSIONS:-}"
-# Python options (comma-separated versions, empty = skip installation)
-PYTHON_VERSIONS="${PYTHON_VERSIONS:-3.12,3.11}"
+# Python versions (comma-separated, empty = skip)
+PYTHON_VERSIONS="${PYTHON_VERSIONS:-}"
 # PHP options
 PHP_DEFAULT="${PHP_DEFAULT:-8.3}"
-PHP_VERSIONS="${PHP_VERSIONS:-8.3,8.4}"
-# PHP modules (comma-separated, empty = default modules)
-PHP_MODULES="${PHP_MODULES:-mysql,gd,xml,mbstring,curl,zip,opcache,intl,bcmath,redis,imagick}"
-# Web servers (comma-separated: nginx,apache,openlitespeed,litespeed)
+PHP_VERSIONS="${PHP_VERSIONS:-8.3}"
+# PHP modules (comma-separated)
+PHP_MODULES="${PHP_MODULES:-mysql,xml,mbstring,curl,zip,opcache,intl}"
+# Web servers (comma-separated)
 WEB_SERVERS="${WEB_SERVERS:-nginx}"
-# Enable features (true/false)
-ENABLE_WP_CLI="${ENABLE_WP_CLI:-true}"
-ENABLE_COMPOSER="${ENABLE_COMPOSER:-true}"
-ENABLE_REDIS="${ENABLE_REDIS:-true}"
-ENABLE_FAIL2BAN="${ENABLE_FAIL2BAN:-true}"
 APP_DIR="${APP_DIR:-/opt/bpanel}"
 SITES_ROOT="${SITES_ROOT:-/home/bpanel-sites}"
 BACKUP_ROOT="${BACKUP_ROOT:-/var/backups/bpanel}"
@@ -157,8 +157,10 @@ ask_panel_url() {
 install_base_packages() {
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
-  apt-get install -y software-properties-common ca-certificates curl gnupg git composer nginx mariadb-server redis-server python3 python3-pip python3-venv certbot python3-certbot-nginx tar openssl unzip ufw phpmyadmin acl
-  systemctl enable --now nginx mariadb redis-server
+  apt-get install -y software-properties-common ca-certificates curl gnupg git nginx mariadb-server python3 python3-pip python3-venv certbot python3-certbot-nginx tar openssl unzip ufw phpmyadmin acl
+  systemctl enable --now nginx mariadb
+  [[ "${ENABLE_REDIS}" == "true" ]] && apt-get install -y redis-server && systemctl enable --now redis || echo "Redis skipped"
+  [[ "${ENABLE_DOCKER}" == "true" ]] && curl -fsSL https://get.docker.com | bash - && systemctl enable docker || echo "Docker skipped"
 }
 
 install_nodejs() {
