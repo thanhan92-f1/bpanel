@@ -291,6 +291,13 @@ function App() {
   });
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [previewConfig, setPreviewConfig] = useState(null);
+  // Node.js state
+  const [nodeVersion, setNodeVersion] = useState(null);
+  const [nodeVersions, setNodeVersions] = useState([]);
+  const [pm2Processes, setPm2Processes] = useState([]);
+  const [selectedPm2Process, setSelectedPm2Process] = useState(null);
+  const [pm2Logs, setPm2Logs] = useState({ content: '', lines: 100 });
+  const [pm2LogModal, setPm2LogModal] = useState(null);
   // WebServer state
   const [webEngines, setWebEngines] = useState([]);
   const [currentEngine, setCurrentEngine] = useState(null);
@@ -1623,6 +1630,52 @@ function App() {
     if (data) setMonitorData(data);
   }
 
+  // WebServer functions
+  async function loadWebEngines() {
+    const [enginesData, currentData] = await Promise.all([
+      request('/webserver/engines'),
+      request('/webserver/current'),
+    ]);
+    if (enginesData) setWebEngines(enginesData);
+    if (currentData) setCurrentEngine(currentData);
+  }
+
+  async function switchWebEngine(engine) {
+    if (!engine) return;
+    const data = await request('/webserver/switch', { method: 'POST', body: JSON.stringify({ engine }) }, `Switching to ${engine}...`);
+    if (data) { setNotice(`Switched to ${engine}. Service restarted.`); await loadWebEngines(); await checkAllServices(); }
+  }
+
+  async function checkSafety() {
+    const data = await request('/webserver/safety-check', {}, 'Running safety check...');
+    if (data) setSafetyCheck(data);
+  }
+
+  async function restoreConfig() {
+    const data = await request('/webserver/restore', { method: 'POST' }, 'Restoring config...');
+    if (data) { setNotice('Original config restored. Web server reloaded.'); await checkSafety(); }
+  }
+
+  async function loadWebsiteEngines() {
+    const data = await request('/webserver/websites');
+    if (data) setWebsitesWithEngines(Array.isArray(data) ? data : []);
+  }
+
+  async function setWebsiteEngine(websiteId, engine) {
+    const data = await request(`/webserver/websites/${websiteId}/engine`, { method: 'PUT', body: JSON.stringify({ engine }) }, `Setting ${engine} for site...`);
+    if (data) { setNotice(`Updated web engine for site.`); await loadWebsiteEngines(); }
+  }
+
+  async function loadEngineStatus(engine) {
+    const data = await request(`/webserver/${engine}/status`);
+    if (data) setWebserverStatus(prev => ({ ...prev, [engine]: data }));
+  }
+
+  async function repairEngine(engine) {
+    const data = await request(`/webserver/${engine}/repair`, { method: 'POST' }, `Repairing ${engine}...`);
+    if (data) { setNotice(data.message || `Repair completed for ${engine}.`); await loadEngineStatus(engine); }
+  }
+
   // PHP Management functions
   async function loadPhpVersions() {
     const data = await request('/php/versions');
@@ -1918,6 +1971,8 @@ function App() {
     if (isAuthenticated && page === 'ftp') { loadFtpStatus(); loadFtpUsers(); }
     if (isAuthenticated && page === 'docker') { loadDockerStatus(); loadContainers(); loadImages(); }
     if (isAuthenticated && page === 'golang') { loadGoVersion(); loadGoVersions(); loadGoProcesses(); }
+    if (isAuthenticated && page === 'nodejs') { loadNodeVersion(); loadNodeVersions(); loadPm2Processes(); }
+    if (isAuthenticated && page === 'webserver' && currentUser?.role === 'admin') { loadWebEngines(); loadWebsiteEngines(); }
   }, [isAuthenticated, page, currentUser?.role]);
 
   useEffect(() => {
@@ -1947,10 +2002,13 @@ function App() {
     ...(isAdmin ? [['php', 'PHP', Code]] : []),
     ...(isAdmin ? [['firewall', 'Firewall', Shield]] : []),
     ...(isAdmin ? [['proxy', 'Proxy', Globe]] : []),
+    ...(isAdmin ? [['webserver', 'WebServer', ServerCog]] : []),
     ...(isAdmin ? [['updates', 'Updates', RefreshCw]] : []),
     ['services', 'Services Status', Server],
     ...(isAdmin ? [['ftp', 'FTP Manager', Server]] : []),
     ['docker', 'Docker', Container],
+    ...(isAdmin ? [['golang', 'Go', Hexagon]] : []),
+    ...(isAdmin ? [['nodejs', 'Node.js', Box]] : []),
     ...(isAdmin ? [['users', 'Panel users', Users]] : []),
     ...(isAdmin ? [['settings', 'Settings', SettingsIcon]] : []),
     ['monitor', 'Monitor', Activity],
