@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -177,3 +178,73 @@ class VirtualEnvironment(Base):
     python_version: Mapped[str] = mapped_column(String(32), nullable=False)
     python_executable: Mapped[str] = mapped_column(String(500), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class AlarmTask(Base):
+    """Alarm task for monitoring and notifications."""
+    __tablename__ = "alarm_tasks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    alarm_type: Mapped[str] = mapped_column(String(50), nullable=False)  # cpu, memory, disk, network, service, custom
+    notification_method: Mapped[str] = mapped_column(String(50), nullable=False)  # telegram, email, webhook
+    condition_config: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON config
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class PanelSetting(Base):
+    """Panel setting key-value store."""
+    __tablename__ = "panel_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    key: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class BackupJob(Base):
+    """Enhanced backup job configuration."""
+    __tablename__ = "backup_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    job_type: Mapped[str] = mapped_column(String(50))  # full, incremental, differential
+    destinations: Mapped[Optional[str]] = mapped_column(Text, default="[]")  # JSON list of destination types
+    include_websites: Mapped[Optional[str]] = mapped_column(Text, default="[]")  # JSON list of website IDs
+    include_databases: Mapped[Optional[str]] = mapped_column(Text, default="[]")  # JSON list of database IDs
+    exclude_paths: Mapped[Optional[str]] = mapped_column(Text, default="[]")  # JSON list of exclude patterns
+    schedule: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    retention_days: Mapped[int] = mapped_column(Integer, default=30)
+    encryption_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    compression_level: Mapped[int] = mapped_column(Integer, default=6)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class BackupStorage(Base):
+    """Backup storage destination configuration."""
+    __tablename__ = "backup_storages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255))
+    storage_type: Mapped[str] = mapped_column(String(50))  # ftp, s3, ssh, onedrive, etc.
+    config: Mapped[Optional[str]] = mapped_column(Text, default="{}")  # JSON configuration (encrypted)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class BackupHistory(Base):
+    """Backup execution history."""
+    __tablename__ = "backup_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    job_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("backup_jobs.id"), nullable=True)
+    backup_type: Mapped[str] = mapped_column(String(50))
+    status: Mapped[str] = mapped_column(String(50))  # running, completed, failed
+    file_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    file_size: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    destinations: Mapped[Optional[str]] = mapped_column(Text, default="[]")
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

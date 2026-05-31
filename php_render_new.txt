@@ -1,0 +1,220 @@
+  function renderPhp() {
+    if (!isAdmin) return <section className="section"><h2>PHP Management</h2><p className="hint">You do not have permission to manage PHP.</p></section>;
+
+    const tabs = [
+      { key: 'versions', label: 'Versions' },
+      { key: 'extensions', label: 'Extensions' },
+      { key: 'config', label: 'Config' },
+      { key: 'fpm', label: 'FPM' },
+      { key: 'logs', label: 'Logs' },
+      { key: 'info', label: 'Info' },
+    ];
+
+    return <section className="section">
+      <div className="section-title">
+        <div><h2>PHP Management</h2><p className="hint">Manage PHP versions, extensions, configuration, and FPM pools.</p></div>
+      </div>
+      <div className="segmented-control">
+        {tabs.map(tab => (
+          <button key={tab.key} className={phpActiveTab === tab.key ? 'active' : ''} onClick={() => {
+            setPhpActiveTab(tab.key);
+            if (tab.key === 'extensions') loadPhpExtensions();
+            else if (tab.key === 'config') loadPhpConfig();
+            else if (tab.key === 'fpm') loadPhpFpmPools();
+            else if (tab.key === 'logs') loadPhpSlowlog();
+            else if (tab.key === 'info') loadPhpInfo();
+          }}>{tab.label}</button>
+        ))}
+      </div>
+
+      {phpActiveTab === 'versions' && <div className="php-tab-content">
+        <div className="section-title">
+          <div><h3>Installed PHP Versions</h3></div>
+          <button disabled={!!loading} onClick={() => { loadPhpVersions(); loadPhpAvailableVersions(); }}><RefreshCw size={14}/> Refresh</button>
+        </div>
+        {phpVersions.length === 0 ? <EmptyState icon={Code} message="No PHP versions installed." /> : (
+          <div className="table">
+            {phpVersions.map(version => (
+              <div className="row" key={version}>
+                <span><Code size={16}/> <strong>PHP {version}</strong></span>
+                <span className="badge ok">Installed</span>
+                <span>
+                  <select value={selectedPhpVersion} onChange={e => setSelectedPhpVersion(e.target.value)} style={{marginRight: 8}}>
+                    <option value={version}>Manage this version</option>
+                  </select>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{marginTop: 24}}>
+          <h3>Available PHP Versions</h3>
+          <div className="table">
+            {phpAvailableVersions.length === 0 ? <p className="hint">Loading available versions...</p> : phpAvailableVersions.map(version => (
+              <div className="row" key={version}>
+                <span><Code size={16}/> <strong>PHP {version}</strong></span>
+                <button className="secondary-light" disabled={!!loading || phpVersions.includes(version)} onClick={() => installPhpVersion(version)}>
+                  <Plus size={14}/> Install
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>}
+
+      {phpActiveTab === 'extensions' && <div className="php-tab-content">
+        <div className="section-title">
+          <div>
+            <h3>PHP {selectedPhpVersion} Extensions</h3>
+            <select value={selectedPhpVersion} onChange={e => { setSelectedPhpVersion(e.target.value); }}>
+              <option value="8.3">PHP 8.3</option>
+              <option value="8.4">PHP 8.4</option>
+            </select>
+          </div>
+          <button disabled={!!loading} onClick={loadPhpExtensions}><RefreshCw size={14}/> Refresh</button>
+        </div>
+        {phpExtensions.length === 0 ? <EmptyState icon={Code} message="Loading extensions..." /> : (
+          <div className="table">
+            {phpExtensions.map(ext => (
+              <div className="row" key={ext.name}>
+                <span><strong>{ext.name}</strong><small>{ext.description || ''}</small></span>
+                <span className={`badge ${ext.installed ? 'ok' : ''}`}>{ext.installed ? 'Installed' : 'Not installed'}</span>
+                {!ext.installed && (
+                  <button className="secondary-light" disabled={!!loading} onClick={() => installPhpExtension(ext.name)}>
+                    <Plus size={14}/> Install
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>}
+
+      {phpActiveTab === 'config' && <div className="php-tab-content">
+        <div className="section-title">
+          <div>
+            <h3>PHP {selectedPhpVersion} Configuration</h3>
+            <select value={selectedPhpVersion} onChange={e => { setSelectedPhpVersion(e.target.value); loadPhpConfig(); }} style={{marginRight: 8}}>
+              <option value="8.3">PHP 8.3</option>
+              <option value="8.4">PHP 8.4</option>
+            </select>
+            <button disabled={!!loading} onClick={optimizePhp} className="secondary-light" style={{marginRight: 8}}><Play size={14}/> Quick Optimize</button>
+          </div>
+          <button disabled={!!loading} onClick={loadPhpConfig}><RefreshCw size={14}/> Refresh</button>
+        </div>
+        <div className="php-config-grid">
+          <div className="php-config-section">
+            <h4>Upload Limits</h4>
+            <label><span>upload_max_filesize</span><input value={phpConfig.upload_max_filesize} onChange={e => setPhpConfig(prev => ({ ...prev, upload_max_filesize: e.target.value }))} placeholder="1024M" /></label>
+            <label><span>post_max_size</span><input value={phpConfig.post_max_size} onChange={e => setPhpConfig(prev => ({ ...prev, post_max_size: e.target.value }))} placeholder="1024M" /></label>
+          </div>
+          <div className="php-config-section">
+            <h4>Timeout Limits</h4>
+            <label><span>max_execution_time</span><input type="number" value={phpConfig.max_execution_time} onChange={e => setPhpConfig(prev => ({ ...prev, max_execution_time: e.target.value }))} /></label>
+            <label><span>max_input_time</span><input type="number" value={phpConfig.max_input_time} onChange={e => setPhpConfig(prev => ({ ...prev, max_input_time: e.target.value }))} /></label>
+            <label><span>max_input_vars</span><input type="number" value={phpConfig.max_input_vars} onChange={e => setPhpConfig(prev => ({ ...prev, max_input_vars: e.target.value }))} /></label>
+          </div>
+          <div className="php-config-section">
+            <h4>Memory & Errors</h4>
+            <label><span>memory_limit</span><input value={phpConfig.memory_limit} onChange={e => setPhpConfig(prev => ({ ...prev, memory_limit: e.target.value }))} placeholder="512M" /></label>
+            <label><span>display_errors</span><select value={phpConfig.display_errors} onChange={e => setPhpConfig(prev => ({ ...prev, display_errors: e.target.value }))}>
+              <option value="Off">Off (production)</option><option value="On">On (debug)</option>
+            </select></label>
+          </div>
+          <div className="php-config-section">
+            <h4>Disabled Functions</h4>
+            <textarea value={phpConfig.disable_functions} onChange={e => setPhpConfig(prev => ({ ...prev, disable_functions: e.target.value }))} placeholder="exec,passthru,shell_exec,system,proc_open,popen" rows={4} />
+          </div>
+          <div className="php-config-section">
+            <h4>OpCache Settings</h4>
+            <label className="check-line"><input type="checkbox" checked={phpConfig.opcache_enable} onChange={e => setPhpConfig(prev => ({ ...prev, opcache_enable: e.target.checked }))} /><span>Enable OpCache</span></label>
+            <label><span>opcache.memory_consumption</span><input value={phpConfig.opcache_memory} onChange={e => setPhpConfig(prev => ({ ...prev, opcache_memory: e.target.value }))} placeholder="128" /></label>
+            <label><span>opcache.max_accelerated_files</span><input type="number" value={phpConfig.opcache_max_files} onChange={e => setPhpConfig(prev => ({ ...prev, opcache_max_files: e.target.value }))} /></label>
+          </div>
+          <div className="php-config-section">
+            <h4>Session Settings</h4>
+            <label><span>session.save_path</span><input value={phpConfig.session_save_path} onChange={e => setPhpConfig(prev => ({ ...prev, session_save_path: e.target.value }))} /></label>
+            <label><span>session.name</span><input value={phpConfig.session_name} onChange={e => setPhpConfig(prev => ({ ...prev, session_name: e.target.value }))} /></label>
+          </div>
+        </div>
+        <div className="actions" style={{marginTop: 16}}>
+          <button disabled={!!loading} onClick={updatePhpConfig}><Save size={14}/> Save Configuration</button>
+        </div>
+        <p className="hint">Note: <code>post_max_size</code> should be >= <code>upload_max_filesize</code>.</p>
+      </div>}
+
+      {phpActiveTab === 'fpm' && <div className="php-tab-content">
+        <div className="section-title">
+          <div>
+            <h3>PHP {selectedPhpVersion}-FPM Pools</h3>
+            <select value={selectedPhpVersion} onChange={e => { setSelectedPhpVersion(e.target.value); loadPhpFpmPools(); }} style={{marginRight: 8}}>
+              <option value="8.3">PHP 8.3</option>
+              <option value="8.4">PHP 8.4</option>
+            </select>
+          </div>
+          <div>
+            <button disabled={!!loading} onClick={restartPhpFpm} className="danger" style={{marginRight: 8}}><RotateCcw size={14}/> Restart FPM</button>
+            <button disabled={!!loading} onClick={loadPhpFpmPools}><RefreshCw size={14}/> Refresh</button>
+          </div>
+        </div>
+        {phpFpmPools.length === 0 ? <EmptyState icon={Server} message="Loading FPM pools..." /> : (
+          <div className="table">
+            <div className="row header-row">
+              <span>Pool Name</span>
+              <span>User</span>
+              <span>Group</span>
+              <span>Status</span>
+              <span>Children</span>
+            </div>
+            {phpFpmPools.map(pool => (
+              <div className="row" key={pool.name}>
+                <span><strong>{pool.name}</strong></span>
+                <span>{pool.user || '-'}</span>
+                <span>{pool.group || '-'}</span>
+                <span className={`badge ${pool.status === 'active' ? 'ok' : ''}`}>{pool.status || 'unknown'}</span>
+                <span>{pool.children || '-'}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>}
+
+      {phpActiveTab === 'logs' && <div className="php-tab-content">
+        <div className="section-title">
+          <div>
+            <h3>PHP {selectedPhpVersion} Slow Log</h3>
+            <select value={selectedPhpVersion} onChange={e => { setSelectedPhpVersion(e.target.value); loadPhpSlowlog(); }} style={{marginRight: 8}}>
+              <option value="8.3">PHP 8.3</option>
+              <option value="8.4">PHP 8.4</option>
+            </select>
+          </div>
+          <button disabled={!!loading} onClick={loadPhpSlowlog}><RefreshCw size={14}/> Refresh</button>
+        </div>
+        {!phpSlowlog ? <p className="hint">Loading...</p> : (
+          <div className="info-box">
+            <pre className="log-output">{phpSlowlog.content || 'No slow log entries.'}</pre>
+            {phpSlowlog.path && <p className="hint">Path: <code>{phpSlowlog.path}</code></p>}
+          </div>
+        )}
+      </div>}
+
+      {phpActiveTab === 'info' && <div className="php-tab-content">
+        <div className="section-title">
+          <div>
+            <h3>PHP {selectedPhpVersion} Info</h3>
+            <select value={selectedPhpVersion} onChange={e => { setSelectedPhpVersion(e.target.value); loadPhpInfo(); }} style={{marginRight: 8}}>
+              <option value="8.3">PHP 8.3</option>
+              <option value="8.4">PHP 8.4</option>
+            </select>
+          </div>
+          <button disabled={!!loading} onClick={loadPhpInfo}><RefreshCw size={14}/> Refresh</button>
+        </div>
+        {!phpInfo ? <p className="hint">Loading phpinfo()...</p> : (
+          <div className="info-box phpinfo-box">
+            <pre className="log-output">{phpInfo.output || phpInfo.content || 'No info available.'}</pre>
+          </div>
+        )}
+      </div>}
+    </section>;
+  }
+

@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api import auth, cron_jobs, databases, docker, firewall, ftp, golang, maintenance, mailserver, monitor, nginx_proxy, nodejs, panel_settings as panel_settings_api, php_versions, phpmyadmin, python_project, services, terminal, updates, users, waf, webserver, websites, wordpress_toolkit
+from app.api import auth, auto_update, backup_enhanced, cron_jobs, databases, docker, firewall, ftp, golang, logs, maintenance, mailserver, monitor, nginx_proxy, nodejs, panel_settings as panel_settings_api, php_versions, phpmyadmin, python_project, services, settings, terminal, updates, users, waf, webserver, websites, wordpress_toolkit
 from app.core.config import settings
 from app.core.database import run_migrations
 from app.services import panel_settings as panel_brand_settings
@@ -85,6 +85,8 @@ async def security_headers(request, call_next):
 
 
 app.include_router(auth.router, prefix="/api")
+app.include_router(auto_update.router, prefix="/api")
+app.include_router(backup_enhanced.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(websites.router, prefix="/api")
 app.include_router(databases.router, prefix="/api")
@@ -108,6 +110,8 @@ app.include_router(golang.router, prefix="/api")
 app.include_router(python_project.router, prefix="/api")
 app.include_router(nginx_proxy.router, prefix="/api")
 app.include_router(webserver.router, prefix="/api")
+app.include_router(settings.router, prefix="/api")
+app.include_router(logs.router, prefix="/api")
 
 
 @app.get("/api/health")

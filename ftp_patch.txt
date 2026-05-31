@@ -1,0 +1,84 @@
+  function renderFtp() {
+    if (!isAdmin) return <section className="section"><h2>FTP Manager</h2><p className="hint">No permission.</p></section>;
+    const ftpRunning = ftpStatus?.running || false;
+    return <>
+      <section className="section">
+        <div className="section-title">
+          <div>
+            <h2>FTP Status</h2>
+            <p className="hint">vsftpd FTP server status</p>
+          </div>
+          <div className="actions">
+            <button disabled={!!loading} onClick={() => { loadFtpStatus(); loadFtpUsers(); }}><RefreshCw size={14}/> Refresh</button>
+            <button disabled={!!loading} onClick={configureFtp}><SettingsIcon size={14}/> Configure FTP</button>
+          </div>
+        </div>
+        <div className="info-box ftp-status-box">
+          <div className="ftp-status-indicator">
+            <span className={`status-dot ${ftpRunning ? 'active' : 'inactive'}`}></span>
+            <span className="status-label">vsftpd</span>
+            <span className={`badge ${ftpRunning ? 'ok' : 'bad'}`}>{ftpRunning ? 'Running' : 'Stopped'}</span>
+          </div>
+          <p className="hint">FTP server listens on port 21. Make sure the firewall allows port 21.</p>
+        </div>
+      </section>
+      <section className="section">
+        <h2>Create FTP User</h2>
+        <p className="hint">FTP users are linked to a website and have access only to that website's directory.</p>
+        <div className="ftp-create-form">
+          <label><span>Username</span>
+            <input value={newFtpUser.username} onChange={e => setNewFtpUser(prev => ({ ...prev, username: e.target.value.toLowerCase() }))} placeholder="ftp_user" disabled={!!loading} />
+          </label>
+          <label><span>Website</span>
+            <select value={newFtpUser.website_id} onChange={e => setNewFtpUser(prev => ({ ...prev, website_id: e.target.value }))} disabled={!!loading}>
+              <option value="">Select website</option>
+              {websites.map(site => <option key={site.id} value={site.id}>{site.domain}</option>)}
+            </select>
+          </label>
+          <label className="check-line">
+            <input type="checkbox" checked={newFtpUser.auto_password} onChange={e => setNewFtpUser(prev => ({ ...prev, auto_password: e.target.checked }))} disabled={!!loading} />
+            <span>Auto-generate password</span>
+          </label>
+          {!newFtpUser.auto_password && (
+            <label><span>Password</span>
+              <input value={newFtpUser.password} onChange={e => setNewFtpUser(prev => ({ ...prev, password: e.target.value }))} placeholder="Enter password" type="password" disabled={!!loading} />
+            </label>
+          )}
+          <button disabled={!!loading || !newFtpUser.username || !newFtpUser.website_id || (!newFtpUser.auto_password && !newFtpUser.password)} onClick={createFtpUser}>
+            <Plus size={14}/> Create FTP User
+          </button>
+        </div>
+      </section>
+      <section className="section">
+        <div className="section-title">
+          <h2>FTP Users</h2>
+          <button disabled={!!loading} onClick={loadFtpUsers}><RefreshCw size={14}/> Refresh</button>
+        </div>
+        {ftpUsers.length === 0 && <EmptyState icon={Server} message="No FTP users found." />}
+        <div className="table">
+          <div className="row header-row">
+            <span>Username</span>
+            <span>Home Directory</span>
+            <span>Website</span>
+            <span>Created</span>
+            <span>Actions</span>
+          </div>
+          {ftpUsers.map(user => {
+            const site = websites.find(s => String(s.id) === String(user.website_id));
+            return (
+              <div className="row" key={user.username}>
+                <span><strong>{user.username}</strong></span>
+                <span><code>{user.home_dir || '/'}</code></span>
+                <span>{site ? site.domain : (user.website_id || '-')}</span>
+                <span>{user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</span>
+                <div className="row-actions">
+                  <button className="mini secondary-light" disabled={!!loading} onClick={() => changeFtpPassword(user.username)}><KeyRound size={13}/> Password</button>
+                  <button className="mini danger" disabled={!!loading} onClick={() => deleteFtpUser(user.username)}><Trash2 size={13}/> Delete</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </>;
+  }

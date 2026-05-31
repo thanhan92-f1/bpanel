@@ -1,0 +1,255 @@
+/* Cron Jobs Styles */
+.cron-page .section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.cron-actions-header {
+  display: flex;
+  gap: 8px;
+}
+
+.cron-table .row {
+  grid-template-columns: 2fr 1fr 1.5fr 80px 1fr 140px;
+  align-items: center;
+}
+
+.cron-command {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cron-command strong {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.cron-command small {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.cron-schedule {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.cron-next-run,
+.cron-last-run {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: var(--shadow-lg);
+}
+
+.cron-modal {
+  max-width: 650px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  color: var(--text);
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-hover);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: monospace;
+}
+
+.schedule-builder {
+  background: var(--surface-alt);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.schedule-fields {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.schedule-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.schedule-field select {
+  padding: 8px;
+  font-size: 13px;
+}
+
+.field-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.cron-preview {
+  background: var(--surface-alt);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.preview-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.preview-expression {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-expression code {
+  background: var(--primary);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.preview-human {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.preview-next-runs {
+  font-size: 13px;
+}
+
+.preview-next-runs strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.preview-next-runs ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.preview-next-runs li {
+  color: var(--text);
+  padding: 2px 0;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 768px) {
+  .cron-table .row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .schedule-fields {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .modal {
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+}
