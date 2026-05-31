@@ -5202,12 +5202,12 @@ function App() {
         </div>
         {showProxyModal && (
           <div className="modal-overlay" onClick={closeProxyModal}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-              <h3>{editingProxy ? 'Edit Proxy Config' : 'New Proxy Config'}</h3>
-              <label>Domain<input value={newProxyConfig.domain} onChange={e => setNewProxyConfig(prev => ({ ...prev, domain: e.target.value })} placeholder="proxy.example.com" disabled={!!editingProxy}/></label>
-              <label>Target URL<input value={newProxyConfig.target_url} onChange={e => setNewProxyConfig(prev => ({ ...prev, target_url: e.target.value })} placeholder="http://localhost:3000"/></label>
-              <label>Template<select value={newProxyConfig.template} onChange={e => setNewProxyConfig(prev => ({ ...prev, template: e.target.value })}>{templates.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}</select></label>
-              <label className="check-line"><input type="checkbox" checked={newProxyConfig.ssl_enabled} onChange={e => setNewProxyConfig(prev => ({ ...prev, ssl_enabled: e.target.checked })}/>Enable SSL</label>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h3>{editingProxy ? 'Edit Proxy' : 'New Proxy'}</h3>
+              <label>Domain<input value={newProxyConfig.domain} onChange={(e) => setNewProxyConfig(prev => ({ ...prev, domain: e.target.value })} placeholder="proxy.example.com" disabled={!!editingProxy}/></label>
+              <label>Target URL<input value={newProxyConfig.target_url} onChange={(e) => setNewProxyConfig(prev => ({ ...prev, target_url: e.target.value })} placeholder="http://localhost:3000"/></label>
+              <label>Template<select value={newProxyConfig.template} onChange={(e) => setNewProxyConfig(prev => ({ ...prev, template: e.target.value })}>{templates.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}</select></label>
+              <label className="check-line"><input type="checkbox" checked={newProxyConfig.ssl_enabled} onChange={(e) => setNewProxyConfig(prev => ({ ...prev, ssl_enabled: e.target.checked })}/>Enable SSL</label>
               <div className="modal-actions">
                 <button disabled={!!loading} onClick={editingProxy ? updateProxyConfig : createProxyConfig}>{editingProxy ? 'Update' : 'Create'}</button>
                 <button className="secondary-light" onClick={closeProxyModal}>Cancel</button>
