@@ -32,7 +32,7 @@ else
   SOURCE_DIR="${SOURCE_DIR:-$DEFAULT_SOURCE_DIR}"
 fi
 
-REPO_URL="${REPO_URL:-https://github.com/BNIX-VN/bpanel.git}"
+REPO_URL="${REPO_URL:-https://github.com/thanhan92-f1/bpanel.git}"
 BRANCH="${BRANCH:-main}"
 SKIP_PULL="${SKIP_PULL:-false}"
 
