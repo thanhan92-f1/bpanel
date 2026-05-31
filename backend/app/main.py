@@ -1,8 +1,11 @@
 import logging
 import os
+import time
+from collections import defaultdict
 from pathlib import Path
+from threading import Lock
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +21,44 @@ run_migrations()
 os.umask(0o022)
 
 logger = logging.getLogger("bpanel")
+
+
+# Rate limiting configuration
+class RateLimiter:
+    """Simple in-memory rate limiter."""
+
+    def __init__(self, requests_per_minute: int = 60, burst_size: int = 10):
+        self.requests_per_minute = requests_per_minute
+        self.burst_size = burst_size
+        self.requests = defaultdict(list)
+        self.lock = Lock()
+
+    def is_allowed(self, client_id: str) -> bool:
+        """Check if request is allowed for client_id."""
+        now = time.time()
+        minute_ago = now - 60
+
+        with self.lock:
+            # Clean old requests
+            self.requests[client_id] = [
+                t for t in self.requests[client_id] if t > minute_ago
+            ]
+
+            # Check rate limit
+            if len(self.requests[client_id]) >= self.requests_per_minute:
+                return False
+
+            # Check burst limit
+            recent = [t for t in self.requests[client_id] if t > now - 1]
+            if len(recent) >= self.burst_size:
+                return False
+
+            # Record request
+            self.requests[client_id].append(now)
+            return True
+
+
+rate_limiter = RateLimiter(requests_per_minute=60, burst_size=10)
 
 app = FastAPI(title="BPanel API", version="0.1.0")
 
@@ -82,6 +123,29 @@ async def security_headers(request, call_next):
             "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
         )
     return response
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    """Rate limiting middleware to prevent API abuse."""
+    # Skip rate limiting for health check and static files
+    path = request.url.path
+    if path in ["/api/health"] or path.startswith("/assets/") or path.startswith("/favicon"):
+        return await call_next(request)
+
+    # Get client identifier (prefer X-Forwarded-For if behind proxy)
+    client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+
+    if not rate_limiter.is_allowed(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Too many requests. Please slow down."},
+            headers={"Retry-After": "60"},
+        )
+
+    return await call_next(request)
 
 
 app.include_router(auth.router, prefix="/api")

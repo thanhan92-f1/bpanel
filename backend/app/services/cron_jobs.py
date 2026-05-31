@@ -596,6 +596,9 @@ def create_cron_job(user: str, command: str, schedule: str, description: str = "
 
     Returns:
         The created job as a dictionary
+
+    Raises:
+        ValueError: If command or schedule is invalid.
     """
     # Validate the schedule
     parsed = parse_cron_expression(schedule)
@@ -603,14 +606,17 @@ def create_cron_job(user: str, command: str, schedule: str, description: str = "
         raise ValueError(f"Invalid cron schedule: {parsed['error']}")
 
     # Basic command validation (prevent obvious issues)
-    if not command.strip():
-        raise ValueError("Command cannot be empty")
+    if not command or not command.strip():
+        raise ValueError("Command is required")
+
+    # Sanitize command to prevent command injection
+    safe_command = _sanitize_command(command)
 
     db = SessionLocal()
     try:
         job = CronJob(
             user=user,
-            command=command,
+            command=safe_command,
             schedule=schedule,
             description=description,
             enabled=True,
@@ -649,6 +655,9 @@ def update_cron_job(
 
     Returns:
         The updated job as a dictionary
+
+    Raises:
+        ValueError: If job not found or parameters are invalid.
     """
     db = SessionLocal()
     try:
@@ -659,7 +668,8 @@ def update_cron_job(
         if command is not None:
             if not command.strip():
                 raise ValueError("Command cannot be empty")
-            job.command = command
+            # Sanitize command to prevent command injection
+            job.command = _sanitize_command(command)
 
         if schedule is not None:
             parsed = parse_cron_expression(schedule)

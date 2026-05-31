@@ -29,9 +29,25 @@ PANEL_PORT="${PANEL_PORT:-2222}"
 SERVER_IP=""
 ENABLE_SSL="${ENABLE_SSL:-auto}"
 SSL_EMAIL="${SSL_EMAIL:-}"
+# Node.js options (comma-separated versions, empty = skip installation)
 NODE_MAJOR="${NODE_MAJOR:-22}"
+NODE_VERSIONS="${NODE_VERSIONS:-22,20,18}"
+# Go options (comma-separated versions, empty = skip installation)
+GO_VERSIONS="${GO_VERSIONS:-}"
+# Python options (comma-separated versions, empty = skip installation)
+PYTHON_VERSIONS="${PYTHON_VERSIONS:-3.12,3.11}"
+# PHP options
 PHP_DEFAULT="${PHP_DEFAULT:-8.3}"
-PHP_VERSIONS="${PHP_VERSIONS:-8.3 8.4}"
+PHP_VERSIONS="${PHP_VERSIONS:-8.3,8.4}"
+# PHP modules (comma-separated, empty = default modules)
+PHP_MODULES="${PHP_MODULES:-mysql,gd,xml,mbstring,curl,zip,opcache,intl,bcmath,redis,imagick}"
+# Web servers (comma-separated: nginx,apache,openlitespeed,litespeed)
+WEB_SERVERS="${WEB_SERVERS:-nginx}"
+# Enable features (true/false)
+ENABLE_WP_CLI="${ENABLE_WP_CLI:-true}"
+ENABLE_COMPOSER="${ENABLE_COMPOSER:-true}"
+ENABLE_REDIS="${ENABLE_REDIS:-true}"
+ENABLE_FAIL2BAN="${ENABLE_FAIL2BAN:-true}"
 APP_DIR="${APP_DIR:-/opt/bpanel}"
 SITES_ROOT="${SITES_ROOT:-/home/bpanel-sites}"
 BACKUP_ROOT="${BACKUP_ROOT:-/var/backups/bpanel}"
@@ -146,16 +162,42 @@ install_base_packages() {
 }
 
 install_nodejs() {
-  curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
-  apt-get install -y nodejs
-  node - <<'NODE'
-const major = Number(process.versions.node.split('.')[0]);
-if (major < 20) {
-  throw new Error(`Node.js 20+ is required, current: ${process.version}`);
+  [[ -z "${NODE_VERSIONS}" ]] && echo "Skipping Node.js (NODE_VERSIONS not set)" && return 0
+  IFS=',' read -ra NODE_ARRAY <<< "${NODE_VERSIONS}"
+  for version in "${NODE_ARRAY[@]}"; do
+    version=$(echo "$version" | tr -d '[:space:]')
+    [[ -z "$version" ]] && continue
+    echo "Installing Node.js $version..."
+    curl -fsSL "https://deb.nodesource.com/setup_${version}.x" | bash - || true
+    apt-get install -y nodejs || true
+    node -v 2>/dev/null && break
+  done
+  node -v 2>/dev/null && npm --version || echo "Node.js not installed"
 }
-console.log(`Using Node.js ${process.version}`);
-NODE
-  npm --version
+
+install_golang() {
+  [[ -z "${GO_VERSIONS}" ]] && echo "Skipping Go (GO_VERSIONS not set)" && return 0
+  IFS=',' read -ra GO_ARRAY <<< "${GO_VERSIONS}"
+  for version in "${GO_ARRAY[@]}"; do
+    version=$(echo "$version" | tr -d '[:space:]')
+    [[ -z "$version" ]] && continue
+    echo "Installing Go $version..."
+    curl -fsSL "https://go.dev/dl/go${version}.linux-amd64.tar.gz" -o /tmp/go.tar.gz && \
+      tar -C /usr/local -xzf /tmp/go.tar.gz && rm /tmp/go.tar.gz && \
+      echo "Go $version installed" || echo "Failed to install Go $version"
+    /usr/local/go/bin/go version 2>/dev/null && break
+  done
+}
+
+install_python_versions() {
+  [[ -z "${PYTHON_VERSIONS}" ]] && echo "Skipping Python versions (PYTHON_VERSIONS not set)" && return 0
+  IFS=',' read -ra PY_ARRAY <<< "${PYTHON_VERSIONS}"
+  for version in "${PY_ARRAY[@]}"; do
+    version=$(echo "$version" | tr -d '[:space:]')
+    [[ -z "$version" ]] && continue
+    echo "Installing Python $version..."
+    apt-get install -y "python${version}" "python${version}-venv" "python${version}-dev" || true
+  done
 }
 
 install_php() {
@@ -166,23 +208,23 @@ install_php() {
     fail "PHP_DEFAULT=${PHP_DEFAULT} must be included in PHP_VERSIONS='${PHP_VERSIONS}'"
   fi
 
+  # Parse PHP modules from comma-separated list
+  IFS=',' read -ra MODULE_ARRAY <<< "${PHP_MODULES:-mysql,gd,xml,mbstring,curl,zip,opcache,intl,bcmath,redis,imagick}"
+
   for version in $PHP_VERSIONS; do
     packages=(
       "php${version}"
       "php${version}-fpm"
       "php${version}-cli"
-      "php${version}-mysql"
-      "php${version}-gd"
-      "php${version}-xml"
-      "php${version}-mbstring"
-      "php${version}-curl"
-      "php${version}-zip"
-      "php${version}-opcache"
-      "php${version}-intl"
-      "php${version}-bcmath"
-      "php${version}-redis"
-      "php${version}-imagick"
     )
+
+    # Add selected modules only
+    for mod in "${MODULE_ARRAY[@]}"; do
+      mod=$(echo "$mod" | tr -d '[:space:]')
+      [[ -z "$mod" ]] && continue
+      package="php${version}-${mod}"
+      packages+=("$package")
+    done
 
     available_packages=()
     missing_packages=()
@@ -777,8 +819,10 @@ main() {
   log "Installing base packages"
   install_base_packages
 
-  log "Installing Node.js ${NODE_MAJOR} from NodeSource"
+  log "Installing runtime environments..."
   install_nodejs
+  install_golang
+  install_python_versions
 
   log "Installing PHP ${PHP_VERSIONS} from Ondrej PPA"
   install_php

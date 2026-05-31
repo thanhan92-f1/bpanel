@@ -3,6 +3,7 @@ Go service for managing Go version, modules, and process management.
 """
 
 import json
+import os
 import re
 from typing import Any, Optional
 
@@ -212,57 +213,87 @@ def test_go_project(path: str) -> dict:
 
 
 def setup_golang_service(website_id: int) -> dict:
-    """Setup Go web server with systemd for a website."""
+    """Setup Go web server with systemd for a website.
+
+    Args:
+        website_id: The website ID to setup Go service for.
+
+    Returns:
+        Dictionary with setup result.
+
+    Raises:
+        ValueError: If website not found or paths are invalid.
+    """
     import re
     from app.core.database import get_db
     from app.models.entities import Website
 
+    # Allowed root directories for security
+    ALLOWED_ROOTS = ['/www/wwwroot', '/var/www', '/home']
+
+    def is_safe_path(path: str) -> bool:
+        """Validate path is within allowed directories."""
+        try:
+            abs_path = os.path.abspath(path)
+            return any(abs_path.startswith(root) for root in ALLOWED_ROOTS)
+        except (OSError, ValueError):
+            return False
+
     db = next(get_db())
-    website = db.query(Website).filter(Website.id == website_id).first()
-    if not website:
-        raise ValueError(f"Website with ID {website_id} not found")
+    try:
+        website = db.query(Website).filter(Website.id == website_id).first()
+        if not website:
+            raise ValueError(f"Website with ID {website_id} not found")
 
-    document_root = website.root_path
+        document_root = website.root_path
 
-    # Find Go entry point
-    main_files = [
-        f"{document_root}/main.go",
-        f"{document_root}/cmd/server/main.go",
-        f"{document_root}/cmd/main.go",
-    ]
+        # Validate document_root is within allowed directories
+        if not is_safe_path(document_root):
+            raise ValueError("Document root path outside allowed directory")
 
-    main_path = None
-    for fp in main_files:
-        if shell.run(["test", "-f", fp], check=False).returncode == 0:
-            main_path = fp
-            break
+        # Find Go entry point
+        main_files = [
+            f"{document_root}/main.go",
+            f"{document_root}/cmd/server/main.go",
+            f"{document_root}/cmd/main.go",
+        ]
 
-    if not main_path:
-        raise ValueError(f"No main.go found in {document_root}")
+        main_path = None
+        for fp in main_files:
+            if shell.run(["test", "-f", fp], check=False).returncode == 0:
+                main_path = fp
+                break
 
-    # Sanitize service name and domain
-    def sanitize_service_name(name: str) -> str:
-        return re.sub(r"[^a-zA-Z0-9]", "_", name.lower())
+        if not main_path:
+            raise ValueError(f"No main.go found in {document_root}")
 
-    def sanitize_unit_value(value: str) -> str:
-        """Remove control characters and newlines for systemd unit files."""
-        return re.sub(r'[\r\n\t]', '_', value).strip()
+        # Validate main_path is within allowed directories
+        if not is_safe_path(main_path):
+            raise ValueError("Main file path outside allowed directory")
 
-    service_name = f"bpanel-go-{sanitize_service_name(website.domain)}"
-    service_file = f"/etc/systemd/system/{service_name}.service"
+        # Sanitize service name and domain
+        def sanitize_service_name(name: str) -> str:
+            return re.sub(r"[^a-zA-Z0-9]", "_", name.lower())
 
-    # Get port from website config or use default
-    port = 8080
+        def sanitize_unit_value(value: str) -> str:
+            """Remove control characters and newlines for systemd unit files."""
+            return re.sub(r'[\r\n\t]', '_', value).strip()
 
-    # Sanitize values for safe inclusion in systemd unit
-    safe_description = sanitize_unit_value(f"Go Application for {website.domain}")
-    safe_user = sanitize_unit_value(website.linux_user)
-    safe_cwd = sanitize_unit_value(document_root)
-    safe_main = sanitize_unit_value(main_path)
-    safe_out_log = sanitize_unit_value(f"{document_root}/logs/go-out.log")
-    safe_err_log = sanitize_unit_value(f"{document_root}/logs/go-error.log")
+        service_name = f"bpanel-go-{sanitize_service_name(website.domain)}"
+        service_file = f"/etc/systemd/system/{service_name}.service"
 
-    unit_content = f"""[Unit]
+        # Get port from website config or use default
+        port = 8080
+
+        # Sanitize values for safe inclusion in systemd unit
+        safe_description = sanitize_unit_value(f"Go Application for {website.domain}")
+        safe_user = sanitize_unit_value(website.linux_user)
+        safe_cwd = sanitize_unit_value(document_root)
+        safe_main = sanitize_unit_value(main_path)
+        safe_out_log = sanitize_unit_value(f"{document_root}/logs/go-out.log")
+        safe_err_log = sanitize_unit_value(f"{document_root}/logs/go-error.log")
+
+        unit_content = f"""[Unit]
 Description={safe_description}
 After=network.target
 
@@ -281,29 +312,33 @@ Environment="PORT={port}"
 WantedBy=multi-user.target
 """
 
-    # Create logs directory
-    shell.run(["mkdir", "-p", f"{document_root}/logs"])
-    shell.run(["chown", "-R", website.linux_user, f"{document_root}/logs"])
+        # Create logs directory
+        shell.run(["mkdir", "-p", f"{document_root}/logs"])
+        shell.run(["chown", "-R", website.linux_user, f"{document_root}/logs"])
 
-    # Write service file
-    with open(service_file, "w") as f:
-        f.write(unit_content)
+        # Write service file
+        with open(service_file, "w") as f:
+            f.write(unit_content)
 
-    # Reload systemd and enable service
-    shell.run(["systemctl", "daemon-reload"])
-    shell.run(["systemctl", "enable", service_name])
-    shell.run(["systemctl", "start", service_name])
+        # Reload systemd and enable service
+        shell.run(["systemctl", "daemon-reload"])
+        shell.run(["systemctl", "enable", service_name])
+        shell.run(["systemctl", "start", service_name])
 
-    return {
-        "website_id": website_id,
-        "domain": website.domain,
-        "service_name": service_name,
-        "service_file": service_file,
-        "main_path": main_path,
-        "port": port,
-        "success": True,
-        "message": f"Go service '{service_name}' setup for {website.domain}",
-    }
+        return {
+            "website_id": website_id,
+            "domain": website.domain,
+            "service_name": service_name,
+            "service_file": service_file,
+            "main_path": main_path,
+            "port": port,
+            "success": True,
+            "message": f"Go service '{service_name}' setup for {website.domain}",
+        }
+    except ValueError:
+        raise
+    finally:
+        db.close()
 
 
 def list_go_processes() -> dict:

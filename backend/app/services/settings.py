@@ -3,8 +3,10 @@ Comprehensive Settings Service for BPanel.
 Provides all panel settings, SSL, authentication, interface, backup, alarm, migration, and service management.
 """
 import json
+import logging
 import os
 import random
+import re
 import secrets
 import string
 from datetime import datetime, timedelta
@@ -16,6 +18,72 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.entities import AlarmTask, PanelSetting as PanelSettingEntity
+
+logger = logging.getLogger("bpanel")
+
+
+# =============================================================================
+# Security Helper Functions
+# =============================================================================
+
+def _validate_ssh_params(server_ip: str, ssh_user: str) -> None:
+    """Validate SSH parameters to prevent injection attacks.
+
+    Args:
+        server_ip: The server IP address.
+        ssh_user: The SSH username.
+
+    Raises:
+        ValueError: If parameters are invalid.
+    """
+    # Validate IP format
+    ip_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+    if not re.match(ip_pattern, server_ip):
+        raise ValueError("Invalid server IP address")
+
+    # Validate octets are in valid range
+    octets = server_ip.split('.')
+    if not all(0 <= int(o) <= 255 for o in octets):
+        raise ValueError("Invalid server IP address")
+
+    # Validate username (alphanumeric and dash/underscore only)
+    user_pattern = r'^[a-zA-Z0-9_-]+$'
+    if not re.match(user_pattern, ssh_user):
+        raise ValueError("Invalid SSH username")
+
+
+def _mask_sensitive(value: str) -> str:
+    """Mask sensitive string for safe logging.
+
+    Args:
+        value: The sensitive value to mask.
+
+    Returns:
+        Masked string showing first 2 and last 2 characters.
+    """
+    if not value:
+        return value
+    if len(value) <= 4:
+        return "****"
+    return value[:2] + "*" * (len(value) - 4) + value[-2:]
+
+
+def _get_safe_config() -> dict:
+    """Return configuration with sensitive fields masked for logging.
+
+    Returns:
+        Dictionary with sensitive fields masked.
+    """
+    config = get_panel_settings()
+    safe_config = config.copy()
+    sensitive_keys = ['password', 'secret', 'key', 'token', 'credential', 'hash']
+
+    for key in list(safe_config.keys()):
+        key_lower = key.lower()
+        if any(s in key_lower for s in sensitive_keys):
+            safe_config[key] = _mask_sensitive(str(safe_config.get(key, '')))
+
+    return safe_config
 
 SETTINGS_DIR = Path(os.environ.get("BPANEL_DATA_DIR", "/var/lib/bpanel"))
 SETTINGS_FILE = SETTINGS_DIR / "panel-settings.json"
@@ -882,33 +950,58 @@ def send_alarm_notification(alarm_type: str, message: str) -> dict:
 # =============================================================================
 
 def migrate_from_aapanel(server_ip: str, ssh_user: str, ssh_password: str) -> dict:
-    """Migrate from aaPanel."""
+    """Migrate from aaPanel.
+
+    Args:
+        server_ip: The remote server IP address.
+        ssh_user: The SSH username for connection.
+        ssh_password: The SSH password (will be masked in logs).
+
+    Returns:
+        Dictionary with migration status.
+    """
     from app.services.shell import shell
 
-    # Test connection first
-    test_result = shell.run(
-        f"sshpass -p '{ssh_password}' ssh -o StrictHostKeyChecking=no {ssh_user}@{server_ip} 'echo connected'",
-        check=False,
-        timeout=30,
-    )
+    # Validate SSH parameters
+    try:
+        _validate_ssh_params(server_ip, ssh_user)
+    except ValueError as e:
+        logger.warning(f"Invalid SSH params for migration: {e}")
+        return {"success": False, "error": str(e)}
+
+    # Test connection with list-based command (prevents injection)
+    test_result = shell.run([
+        "sshpass", "-p", ssh_password,
+        "ssh", "-o", "StrictHostKeyChecking=no",
+        "-o", "ConnectTimeout=30",
+        f"{ssh_user}@{server_ip}",
+        "echo", "connected"
+    ], check=False, timeout=30)
 
     if test_result.returncode != 0:
+        logger.warning(f"Failed to connect to {server_ip} for migration")
         return {"success": False, "error": "Cannot connect to server. Check credentials."}
 
-    # Get aaPanel data
+    # Get aaPanel data using list-based commands
     commands = [
         "cat /www/server/panel/default.pl",
         "cat /www/server/panel/config/config.json",
     ]
 
     for cmd in commands:
-        result = shell.run(
-            f"sshpass -p '{ssh_password}' ssh -o StrictHostKeyChecking=no {ssh_user}@{server_ip} '{cmd}'",
-            check=False,
-        )
+        # Execute remote command using list to prevent injection
+        result = shell.run([
+            "sshpass", "-p", ssh_password,
+            "ssh", "-o", "StrictHostKeyChecking=no",
+            "-o", "ConnectTimeout=30",
+            f"{ssh_user}@{server_ip}",
+            cmd
+        ], check=False, timeout=60)
         if result.returncode == 0:
             # Parse and import data
-            pass
+            logger.info(f"Retrieved data from remote server: {cmd}")
+
+    logger.info(f"Migration from aaPanel initiated for server {server_ip}")
 
     return {
         "success": True,
@@ -924,7 +1017,18 @@ def migrate_from_aapanel(server_ip: str, ssh_user: str, ssh_password: str) -> di
 
 
 def migrate_from_other_panel(server_ip: str, ssh_user: str, ssh_password: str, panel_type: str) -> dict:
-    """Migrate from other panels."""
+    """Migrate from other panels.
+
+    Args:
+        server_ip: The remote server IP address.
+        ssh_user: The SSH username for connection.
+        ssh_password: The SSH password.
+        panel_type: The type of panel to migrate from.
+
+    Returns:
+        Dictionary with migration status.
+    """
+    logger.info(f"Migration from {panel_type} initiated for server {server_ip}")
     return migrate_from_aapanel(server_ip, ssh_user, ssh_password)
 
 

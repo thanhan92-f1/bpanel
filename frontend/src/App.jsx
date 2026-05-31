@@ -14,12 +14,22 @@ import 'ace-builds/src-noconflict/mode-yaml';
 import 'ace-builds/src-noconflict/theme-textmate';
 import { Archive, ArrowRightLeft, Bell, Check, Cloud, Clock, Code, Code2, Copy, Cpu, Database, FileText, FolderOpen, Globe, HardDrive, Hexagon, History, Home, Image, KeyRound, Link, Lock, LogIn, LogOut, Mail, Inbox, Palette, Send, Settings as SettingsIcon, Spam, MemoryStick, Menu, MoveRight, Network, Package, Server, Shield, ShieldCheck, Terminal as TerminalIcon, Trash2, Users, Unlock, X, RefreshCw, Plus, Download, Upload, Play, Square, RotateCcw, AlertCircle, Activity, ToggleLeft, ToggleRight, Container, Search, Eye, Edit, Save, ServerCog, AlertTriangle, CheckCircle, XCircle, Wrench, Box } from 'lucide-react';
 import { Terminal } from './components/Terminal';
-import { renderWebserver } from './components/WebServer';
 import { Logs } from './components/Logs';
 import './style.css';
 import './cron.css';
 import './brand.css';
 import './file-manager.css';
+
+// New page component imports
+// These components can be used to replace inline render functions
+// See pages/index.js for the full list of available components
+// import { Dashboard, Docker, FTP, PHPVersions, NodeJS, GoProject, PythonProject, NginxProxy, WebServer, MailServer, CronJobs, Monitor, Logs, Settings, Update, Backup } from './pages';
+
+// Common components
+// import { Modal, Table, Tabs, EmptyState } from './components';
+
+// Hooks
+// import { useApi } from './hooks';
 
 const API = import.meta.env.VITE_API_URL || '/api';
 const SERVICE_NAMES = ['bpanel-api', 'nginx', 'php8.3-fpm', 'php8.4-fpm', 'mariadb', 'redis-server'];
@@ -3976,6 +3986,10 @@ function App() {
     const [backupList, setBackupList] = useState([]);
     const [services, setServices] = useState([]);
     const [showApiKey, setShowApiKey] = useState(false);
+    const [phpVersionsInstalled, setPhpVersionsInstalled] = useState([]);
+    const [webServersInstalled, setWebServersInstalled] = useState([]);
+    const [installingPhp, setInstallingPhp] = useState(false);
+    const [installingWebServer, setInstallingWebServer] = useState(false);
 
     // Load settings data
     async function loadSettingsData() {
@@ -4006,6 +4020,36 @@ function App() {
     async function loadAllServices() {
       const data = await request('/settings/services/all');
       if (data) setServices(Array.isArray(data) ? data : []);
+    }
+
+    async function loadPhpVersionsInstalled() {
+      const data = await request('/php/versions');
+      if (data) setPhpVersionsInstalled(data.versions || []);
+    }
+
+    async function loadWebServersInstalled() {
+      const data = await request('/webserver/engines');
+      if (data) setWebServersInstalled(data.engines || []);
+    }
+
+    async function installPhpVersion(version) {
+      setInstallingPhp(true);
+      const result = await request(`/php/versions/${version}/install`, { method: 'POST' }, `Installing PHP ${version}...`);
+      setInstallingPhp(false);
+      if (result?.success) {
+        setNotice(`PHP ${version} installed successfully`);
+        loadPhpVersionsInstalled();
+      }
+    }
+
+    async function installWebServer(engine) {
+      setInstallingWebServer(true);
+      const result = await request(`/webserver/install/${engine}`, { method: 'POST' }, `Installing ${engine}...`);
+      setInstallingWebServer(false);
+      if (result?.success) {
+        setNotice(`${engine} installed successfully`);
+        loadWebServersInstalled();
+      }
     }
 
     // Save settings
@@ -4109,10 +4153,38 @@ function App() {
       { key: 'developer', label: 'Developer', icon: Code },
       { key: 'security', label: 'Security', icon: Lock },
       { key: 'interface', label: 'Interface', icon: Palette },
+      { key: 'software', label: 'Software', icon: Package },
       { key: 'backup', label: 'Backup', icon: Database },
       { key: 'alarm', label: 'Alarm', icon: Bell },
       { key: 'migrate', label: 'Migrate', icon: ArrowRightLeft },
       { key: 'service', label: 'Service', icon: Server },
+    ];
+
+    // PHP Module options
+    const PHP_MODULES = [
+      { key: 'mysql', label: 'MySQLi', desc: 'MySQL database support' },
+      { key: 'gd', label: 'GD', desc: 'Image processing' },
+      { key: 'xml', label: 'XML', desc: 'XML parsing' },
+      { key: 'mbstring', label: 'MBString', desc: 'Multibyte string support' },
+      { key: 'curl', label: 'cURL', desc: 'HTTP requests' },
+      { key: 'zip', label: 'Zip', desc: 'ZIP archive support' },
+      { key: 'opcache', label: 'OPcache', desc: 'PHP caching' },
+      { key: 'intl', label: 'Intl', desc: 'Internationalization' },
+      { key: 'bcmath', label: 'BCMath', desc: 'Arbitrary precision math' },
+      { key: 'redis', label: 'Redis', desc: 'Redis session/cache' },
+      { key: 'imagick', label: 'Imagick', desc: 'ImageMagick PHP extension' },
+      { key: 'soap', label: 'SOAP', desc: 'SOAP web services' },
+      { key: 'ldap', label: 'LDAP', desc: 'Directory services' },
+      { key: 'pgsql', label: 'PostgreSQL', desc: 'PostgreSQL support' },
+      { key: 'sqlite3', label: 'SQLite3', desc: 'SQLite database' },
+    ];
+
+    // Web Server options
+    const WEB_SERVERS = [
+      { key: 'nginx', label: 'Nginx', desc: 'Web server & reverse proxy', port: '80/443' },
+      { key: 'apache', label: 'Apache', desc: 'Apache HTTP server', port: '8188/8189' },
+      { key: 'openlitespeed', label: 'OpenLiteSpeed', desc: 'High-performance server', port: '8190/8288' },
+      { key: 'litespeed', label: 'LiteSpeed Enterprise', desc: 'Premium server (license required)', port: '8290/8291' },
     ];
 
     const THEMES = [
@@ -4356,7 +4428,7 @@ function App() {
                   <p>Comma-separated IP addresses that are allowed to access the panel</p>
                 </div>
                 <div className="settings-field">
-                  <textarea value={(settingsData.authorized_ips || []).join(', ')} onChange={e => saveSettings('authorized_ips', e.target.value.split(',').map(ip => ip.trim()).filter(Boolean)} placeholder="192.168.1.1, 10.0.0.0/8" rows={3} />
+                  <textarea value={(settingsData.authorized_ips || []).join(', ')} onChange={(e) => saveSettings('authorized_ips', e.target.value.split(',').map((ip) => ip.trim()).filter(Boolean))} placeholder="192.168.1.1, 10.0.0.0/8" rows={3} />
                 </div>
               </div>
             </>
@@ -4534,6 +4606,75 @@ function App() {
                       <p>Import and configure websites, databases</p>
                     </div>
                   </div>
+                </div>
+              </div>
+            </>
+          );
+
+        case 'software':
+          return (
+            <>
+              <div className="settings-section">
+                <h3>PHP Versions</h3>
+                <p className="hint">Install additional PHP versions or modules. Select the modules you need.</p>
+                <div className="settings-grid">
+                  {PHP_MODULES.map(mod => (
+                    <div key={mod.key} className="software-card">
+                      <div className="software-info">
+                        <strong>{mod.label}</strong>
+                        <small>{mod.desc}</small>
+                      </div>
+                      <label className="checkbox-label">
+                        <input type="checkbox" defaultChecked />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <div className="settings-section" style={{ marginTop: 24 }}>
+                  <h4>Install PHP Version</h4>
+                  <div className="form-row">
+                    <select onChange={e => e.target.value && installPhpVersion(e.target.value)} disabled={installingPhp}>
+                      <option value="">Select PHP version to install...</option>
+                      {['8.1', '8.2', '8.3', '8.4', '8.5'].map(v => (
+                        <option key={v} value={v}>PHP {v}</option>
+                      ))}
+                    </select>
+                    <button disabled={installingPhp} onClick={loadPhpVersionsInstalled}>
+                      <RefreshCw size={14}/> Refresh
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="settings-section">
+                <h3>Web Servers</h3>
+                <p className="hint">Install additional web servers for Multi-WebServer hosting.</p>
+                <div className="settings-info-box">
+                  <p><strong>Port Assignments:</strong></p>
+                  <small>Nginx: 80/443 | Apache: 8188/8189 | OpenLiteSpeed: 8190/8288 | LiteSpeed: 8290/8291</small>
+                </div>
+                <div className="settings-grid">
+                  {WEB_SERVERS.map(ws => {
+                    const installed = webServersInstalled.some(e => e.name === ws.key);
+                    return (
+                      <div key={ws.key} className="software-card">
+                        <div className="software-info">
+                          <strong>{ws.label}</strong>
+                          <small>{ws.desc}</small>
+                          <small>Ports: {ws.port}</small>
+                        </div>
+                        <div className="software-actions">
+                          {installed ? (
+                            <span className="badge ok">Installed</span>
+                          ) : (
+                            <button className="secondary" disabled={installingWebServer} onClick={() => installWebServer(ws.key)}>
+                              Install
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </>
