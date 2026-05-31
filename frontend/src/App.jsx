@@ -5162,30 +5162,61 @@ function App() {
     return `${mins}m`;
   }
   function renderProxy() {
-            <label><span>Domain</span><input value={newProxyConfig.domain} onChange={e => setNewProxyConfig(prev => ({ ...prev, domain: e.target.value }))} placeholder="proxy.example.com" disabled={!!editingProxy}/></label>
-            <label><span>Target URL</span><input value={newProxyConfig.target_url} onChange={e => setNewProxyConfig(prev => ({ ...prev, target_url: e.target.value }))} placeholder="http://localhost:3000"/></label>
-            <label><span>Template</span><select value={newProxyConfig.template} onChange={e => setNewProxyConfig(prev => ({ ...prev, template: e.target.value }))}>{templates.map(t => <option key={t.name} value={t.name}>{t.name.charAt(0).toUpperCase() + t.name.slice(1)} - {t.description}</option>)}</select></label>
-            <label className="check-line"><input type="checkbox" checked={newProxyConfig.ssl_enabled} onChange={e => setNewProxyConfig(prev => ({ ...prev, ssl_enabled: e.target.checked }))}/><span>Enable SSL (Let's Encrypt)</span></label>
-            <div className="advanced-section">
-              <button className="advanced-toggle" onClick={() => setShowAdvanced(!showAdvanced)}>Advanced Options {showAdvanced ? '▼' : '▶'}</button>
-              {showAdvanced && (
-                <div className="advanced-fields">
-                  <label><span>Connect Timeout (s)</span><input type="number" value={newProxyConfig.connect_timeout} onChange={e => setNewProxyConfig(prev => ({ ...prev, connect_timeout: e.target.value }))} min="1" max="300"/></label>
-                  <label><span>Send Timeout (s)</span><input type="number" value={newProxyConfig.send_timeout} onChange={e => setNewProxyConfig(prev => ({ ...prev, send_timeout: e.target.value }))} min="1" max="300"/></label>
-                  <label><span>Read Timeout (s)</span><input type="number" value={newProxyConfig.read_timeout} onChange={e => setNewProxyConfig(prev => ({ ...prev, read_timeout: e.target.value }))} min="1" max="300"/></label>
-                </div>
-              )}
+    return (
+      <section className="section">
+        <div className="section-title">
+          <div>
+            <h2>Nginx Proxy</h2>
+            <p className="hint">Manage reverse proxy configurations</p>
+          </div>
+          <button disabled={!!loading} onClick={loadProxyConfigs}><RefreshCw size={15}/> Refresh</button>
+        </div>
+        {proxyConfigs.length > 0 && (
+          <div className="table">
+            <div className="row header-row">
+              <span>Domain</span><span>Template</span><span>SSL</span><span>Status</span><span>Actions</span>
             </div>
-            <div className="actions"><button disabled={!!loading} onClick={previewProxyConfig}><Eye size={14}/> Preview Config</button></div>
-            {previewConfig && <div className="config-preview"><h4>Config Preview</h4><pre>{typeof previewConfig === 'string' ? previewConfig : JSON.stringify(previewConfig, null, 2)}</pre></div>}
-            <div className="actions">
-              {editingProxy ? <button disabled={!!loading} onClick={updateProxyConfig}><Save size={14}/> Update</button> : <button disabled={!!loading} onClick={createProxyConfig}><Plus size={14}/> Create</button>}
-              <button className="secondary-light" onClick={resetProxyForm}>Cancel</button>
+            {proxyConfigs.map(c => (
+              <div key={c.domain} className="row">
+                <span><strong>{c.domain}</strong><small>{c.target_url}</small></span>
+                <span>{c.template}</span>
+                <span>{c.ssl_enabled ? <Badge className="ok">Enabled</Badge> : <Badge>Disabled</Badge>}</span>
+                <span>{c.enabled ? <Badge className="ok">Active</Badge> : <Badge className="muted">Inactive</Badge>}</span>
+                <div className="row-actions">
+                  <button className="mini" disabled={!!loading} onClick={() => toggleProxyConfig(c)}>{c.enabled ? 'Disable' : 'Enable'}</button>
+                  <button className="mini secondary-light" disabled={!!loading} onClick={() => c.ssl_enabled ? renewSsl(c.domain) : setupSsl(c.domain)}>{c.ssl_enabled ? 'Renew SSL' : 'Setup SSL'}</button>
+                  <button className="mini secondary-light" disabled={!!loading} onClick={() => openProxyModal(c)}>Edit</button>
+                  <button className="mini danger" disabled={!!loading} onClick={() => deleteProxyConfig(c.domain)}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {proxyConfigs.length === 0 && <EmptyState icon={Globe} message="No proxy configs" />}
+        <div className="actions" style={{ marginTop: 16 }}>
+          <button disabled={!!loading} onClick={() => openProxyModal(null)}><Plus size={14}/> Add Proxy Config
+        </button>
+        <button disabled={!!loading} onClick={reloadNginx}>Reload Nginx</button>
+        <button disabled={!!loading} onClick={restartNginx}>Restart Nginx</button>
+        <button disabled={!!loading} onClick={loadProxyStatus}>Status</button>
+        </div>
+        {showProxyModal && (
+          <div className="modal-overlay" onClick={closeProxyModal}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+              <h3>{editingProxy ? 'Edit Proxy Config' : 'New Proxy Config'}</h3>
+              <label>Domain<input value={newProxyConfig.domain} onChange={e => setNewProxyConfig(prev => ({ ...prev, domain: e.target.value })} placeholder="proxy.example.com" disabled={!!editingProxy}/></label>
+              <label>Target URL<input value={newProxyConfig.target_url} onChange={e => setNewProxyConfig(prev => ({ ...prev, target_url: e.target.value })} placeholder="http://localhost:3000"/></label>
+              <label>Template<select value={newProxyConfig.template} onChange={e => setNewProxyConfig(prev => ({ ...prev, template: e.target.value })}>{templates.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}</select></label>
+              <label className="check-line"><input type="checkbox" checked={newProxyConfig.ssl_enabled} onChange={e => setNewProxyConfig(prev => ({ ...prev, ssl_enabled: e.target.checked })}/>Enable SSL</label>
+              <div className="modal-actions">
+                <button disabled={!!loading} onClick={editingProxy ? updateProxyConfig : createProxyConfig}>{editingProxy ? 'Update' : 'Create'}</button>
+                <button className="secondary-light" onClick={closeProxyModal}>Cancel</button>
+              </div>
             </div>
           </div>
-        </section>
-      )}
-    </>;
+        )}
+      </section>
+    );
   }
 
   // Docker functions
